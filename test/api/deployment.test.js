@@ -103,13 +103,51 @@ describe('paths only the full runtime serves', () => {
   });
 });
 
+describe('addresses: localhost locally, the live URL when deployed, never both', () => {
+  const LIVE = { host: 'production-factory-core.vercel.app', proto: 'https' };
+  const LOCAL = { host: 'localhost:1880', proto: 'http' };
+  const from = (req, { host, proto }) => req.set('Host', host).set('X-Forwarded-Proto', proto);
+  const codeBlocks = (html) => (html.match(/<pre[\s\S]*?<\/pre>/g) || []).join('\n');
+
+  it('lists only the address being read from as the OpenAPI server', async () => {
+    const live = await from(request(app).get('/openapi.json'), LIVE).expect(200);
+    expect(live.body.servers).toEqual([
+      { url: 'https://production-factory-core.vercel.app/api/v1', description: 'Live deployment' }
+    ]);
+
+    const local = await from(request(app).get('/openapi.json'), LOCAL).expect(200);
+    expect(local.body.servers).toEqual([
+      { url: 'http://localhost:1880/api/v1', description: 'Local - this machine' }
+    ]);
+  });
+
+  it('points the docs examples at the live URL on the live site', async () => {
+    const live = await from(request(app).get('/docs/API').set('accept', 'text/html'), LIVE).expect(200);
+    const examples = codeBlocks(live.text);
+    expect(examples).toContain('https://production-factory-core.vercel.app/api/v1');
+    expect(examples).not.toContain('localhost:1880');
+
+    const local = await from(request(app).get('/docs/API').set('accept', 'text/html'), LOCAL).expect(200);
+    expect(codeBlocks(local.text)).toContain('localhost:1880');
+    expect(codeBlocks(local.text)).not.toContain('vercel.app');
+  });
+
+  it('leaves local-only addresses alone on the live site', async () => {
+    // MQTT and the local serverless preview only exist on the reader's machine.
+    const flows = await from(request(app).get('/docs/FLOWS').set('accept', 'text/html'), LIVE).expect(200);
+    expect(codeBlocks(flows.text)).toContain('-h localhost -p 1883');
+    const deployment = await from(request(app).get('/docs/DEPLOYMENT').set('accept', 'text/html'), LIVE).expect(200);
+    expect(codeBlocks(deployment.text)).toContain('localhost:3000');
+  });
+});
+
 describe('a frozen instance catches up', () => {
   beforeEach(() => ctx.simulator.start());
   afterEach(() => ctx.simulator.stop());
 
   it('replays the ticks missed while frozen before answering an API request', async () => {
     const { simulator } = ctx;
-    simulator.lastTickAt = Date.now() - 5000;
+    simulator.clockAt = Date.now() - 5000;
     const before = simulator.counters.catchUpTicks;
 
     await request(app).get('/api/v1/kpi/dashboard').expect(200);
@@ -119,9 +157,20 @@ describe('a frozen instance catches up', () => {
     expect(simulator.counters.catchUpTicks - before).toBeLessThanOrEqual(21);
   });
 
+  it('still catches up when the overdue timer fires first on thaw', () => {
+    // Regression, seen on Vercel: waking a frozen instance fires the overdue
+    // interval once before the request is read. That tick must account for
+    // its own 250 ms only, not declare the whole freeze made up.
+    const { simulator } = ctx;
+    simulator.clockAt = Date.now() - 5000;
+    simulator.tick();
+
+    expect(simulator.catchUp(config.simulator.catchUpSeconds)).toBeGreaterThanOrEqual(18);
+  });
+
   it('skips a gap longer than the limit instead of replaying all of it', () => {
     const { simulator } = ctx;
-    simulator.lastTickAt = Date.now() - 10 * 60 * 1000;
+    simulator.clockAt = Date.now() - 10 * 60 * 1000;
 
     const ticks = simulator.catchUp(config.simulator.catchUpSeconds);
 
@@ -131,7 +180,7 @@ describe('a frozen instance catches up', () => {
 
   it('does nothing for a stopped simulator or on a server', () => {
     ctx.simulator.stop();
-    ctx.simulator.lastTickAt = Date.now() - 5000;
+    ctx.simulator.clockAt = Date.now() - 5000;
     expect(ctx.simulator.catchUp(30)).toBe(0);
     ctx.simulator.start();
     expect(ctx.simulator.catchUp(0)).toBe(0);

@@ -5,6 +5,14 @@
   "private": true,
   "license": "MIT",
   "author": "Production Core",
+  "homepage": "https://production-factory-core.vercel.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ramraghul/Production_Core.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Ramraghul/Production_Core/issues"
+  },
   "keywords": [
     "node-red",
     "mes",

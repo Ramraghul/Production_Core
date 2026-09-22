@@ -19,6 +19,7 @@ const workOrderCore = require('../core/workOrder');
 const unitCore = require('../core/unit');
 const subCore = require('../core/subAssembly');
 const controlCore = require('../core/stationControl');
+const { isLocalOrigin } = require('./origin');
 
 const ref = (name) => ({ $ref: `#/components/schemas/${name}` });
 
@@ -64,7 +65,9 @@ function withRateLimitResponses(paths) {
 
 /**
  * Build the specification.
- * @param {object} [options] {publicUrl}
+ * @param {object} [options]
+ * @param {string} [options.origin]    where the document is being read from
+ * @param {string} [options.publicUrl] fallback when there is no request
  */
 function buildSpec(options = {}) {
   const stationIds = plantModel.ALL_STATIONS.map((s) => s.id);
@@ -73,11 +76,15 @@ function buildSpec(options = {}) {
   const exampleStation = 'CHAS-10';
   const exampleVin = '2NSAURE1XTW001042';
 
-  const servers = [];
-  const publicUrl = options.publicUrl || config.http.publicUrl;
-  if (publicUrl) servers.push({ url: `${publicUrl}/api/v1`, description: 'Hosted demo' });
-  servers.push({ url: '/api/v1', description: 'This instance' });
-  servers.push({ url: `http://localhost:${config.http.port}/api/v1`, description: 'Local development' });
+  // Exactly one server: the address the document is being read from. On the
+  // live site Swagger shows only the live URL, on a developer's machine only
+  // localhost - offering both invites "Try it out" against the wrong one.
+  const origin = (options.origin || options.publicUrl || config.http.publicUrl
+    || `http://localhost:${config.http.port}`).replace(/\/+$/, '');
+  const servers = [{
+    url: `${origin}/api/v1`,
+    description: isLocalOrigin(origin) ? 'Local - this machine' : 'Live deployment'
+  }];
 
   return {
     openapi: '3.0.3',

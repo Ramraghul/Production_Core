@@ -22,37 +22,71 @@ maintenance under a work order, with the lockout enforced everywhere.
                          └─────────────┘
 ```
 
+---
+
+## Live demo
+
+**<https://production-factory-core.vercel.app>** — nothing to install.
+
 | | |
 |---|---|
-| **Plant HMI** | `/` — live plant floor view, with station start / stop / maintenance |
-| **Node-RED flows** | `/red` — 13 tabs, 204 nodes, 7 custom nodes |
-| **REST API + Swagger** | `/api-docs` — 76 paths, 83 operations |
-| **Documentation** | `/docs` — these pages, with live diagrams of the running plant |
-| **Line board (served by the flows)** | `/factory/board` |
-| **Live event stream** | `/api/v1/events/stream` (SSE) |
-| **MQTT broker** | `mqtt://localhost:1883`, or `/mqtt` over WebSocket |
+| **Plant HMI** | <https://production-factory-core.vercel.app> |
+| **Swagger UI** | <https://production-factory-core.vercel.app/api-docs> |
+| **REST API** | <https://production-factory-core.vercel.app/api/v1> |
+| **OpenAPI document** | <https://production-factory-core.vercel.app/openapi.json> |
+| **Documentation** | <https://production-factory-core.vercel.app/docs> |
+| **Health check** | <https://production-factory-core.vercel.app/api/v1/health> |
+| **Live event stream (SSE)** | <https://production-factory-core.vercel.app/api/v1/events/stream> |
+
+Reads are open. Writes need the demo key `production-core-demo-key` — the
+plant screen's Start, Stop and Maintenance buttons already send it, and in
+Swagger it goes under **Authorize**.
+
+The live demo runs on Vercel, which hosts functions rather than a long-running
+server. So the two parts that need one — the **Node-RED flows** and the
+**MQTT broker** — are not in it; run it locally to see those. Its plant is
+reseeded, identically, whenever Vercel starts a fresh instance.
 
 <!-- live:stats -->
 
 ---
 
-## Run it
+## Run it locally
 
 ```bash
 npm install
 npm start
 ```
 
-Open <http://localhost:1880>. That is the whole setup — no database to
-provision, no MQTT broker to install, no seed script to run first. The plant
-boots with three shifts of production history already in it and starts
-building vehicles immediately.
+That is the whole setup — no database to provision, no MQTT broker to install,
+no seed script to run first. The plant boots with three shifts of production
+history already in it and starts building vehicles immediately. Everything is
+served on one port:
 
-With Docker:
+| | |
+|---|---|
+| **Plant HMI** | <http://localhost:1880> — station start / stop / maintenance |
+| **Node-RED flows** | <http://localhost:1880/red> — 13 tabs, 204 nodes, 7 custom nodes |
+| **Swagger UI** | <http://localhost:1880/api-docs> — 76 paths, 83 operations |
+| **REST API** | <http://localhost:1880/api/v1> |
+| **Documentation** | <http://localhost:1880/docs> — with live diagrams of the running plant |
+| **Line board (served by the flows)** | <http://localhost:1880/factory/board> |
+| **Live event stream (SSE)** | <http://localhost:1880/api/v1/events/stream> |
+| **MQTT broker** | `mqtt://localhost:1883`, or WebSocket at `ws://localhost:1880/mqtt` |
+
+With Docker, the same addresses:
 
 ```bash
 docker compose up --build
 ```
+
+To preview exactly what the Vercel deployment serves, without an account:
+
+```bash
+npm run start:serverless
+```
+
+It serves on <http://localhost:3000>.
 
 ---
 
@@ -208,7 +242,7 @@ discovered in production.
 | Station control | Operator start / stop, 3 maintenance types, PM checklists by capability |
 | Node-RED | 13 tabs, 204 nodes, 7 custom nodes |
 | REST API | 76 paths, 83 operations, OpenAPI 3.0 |
-| Tests | 387 across unit, API, docs, Node-RED node and contract suites |
+| Tests | 392 across unit, API, docs, Node-RED node and contract suites |
 | Code | ~26,000 lines |
 
 ### Standards it follows
@@ -292,7 +326,7 @@ deployment possible.
 | **Hugging Face Spaces** | Free indefinitely | No spin-down on request; paused after 48 h with no traffic. [`deploy/huggingface/`](deploy/huggingface/) |
 | **Koyeb** | Free instance | One service on the free plan. |
 | **Fly.io** | Check current pricing | [`fly.toml`](fly.toml) included. Their free allowance has changed more than once. |
-| **Vercel** | Free (Hobby) | Serverless: HMI, API, Swagger and docs — **without Node-RED and MQTT**, which need a long-running process. [`vercel.json`](vercel.json) |
+| **Vercel** | Free (Hobby) | **Live at <https://production-factory-core.vercel.app>**. Serverless: HMI, API, Swagger and docs — **without Node-RED and MQTT**, which need a long-running process. [`vercel.json`](vercel.json) |
 
 Render, Hugging Face, Koyeb and Fly run the whole application. Vercel runs the
 parts that fit in a function; set `PC_FULL_RUNTIME_URL` to a full deployment and
@@ -313,7 +347,7 @@ Step-by-step instructions for each: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 npm start              # run everything
 npm run dev            # with --watch
 
-npm test               # 387 tests
+npm test               # 392 tests
 npm run test:coverage  # with coverage thresholds
 npm run smoke          # boot the full stack and drive it over HTTP and MQTT
 npm run lint
@@ -357,11 +391,13 @@ Every setting has a working default; `.env` is optional. See
 
 ## Documentation
 
-With the app running, the docs are at <http://localhost:1880/docs> — rendered
-with live diagrams of this instance, state machines drawn from the rules the
-code enforces, an OEE calculator backed by the real engine, runnable API
-examples, a source browser and search (<kbd>/</kbd>). The same files read fine
-as plain markdown here.
+The documentation is published at <https://production-factory-core.vercel.app/docs>
+(and served at <http://localhost:1880/docs> when you run it locally), rendered
+with live diagrams of the running plant, state machines drawn from the rules
+the code enforces, an OEE calculator backed by the real engine, runnable API
+examples, a source browser and search (<kbd>/</kbd>). Its examples use the
+address you are reading them on. The same files read fine as plain markdown
+here.
 
 | | |
 |---|---|

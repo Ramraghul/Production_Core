@@ -588,6 +588,14 @@ async function showVersion() {
       `${health.store.collections.units} vehicles, ` +
       `${health.store.indexes.lots} supplier lots in memory · ` +
       `uptime ${Math.round(health.uptimeSeconds / 60)} min`;
+
+    // A deployment without Node-RED (the serverless one) has no flow editor
+    // or flow-served pages; do not offer links to them. With a full runtime
+    // configured elsewhere, the links stay - they redirect there.
+    const runtime = health.runtime || {};
+    if (runtime.nodeRed === false && !runtime.fullRuntimeUrl) {
+      document.querySelectorAll('[data-needs-node-red]').forEach((link) => { link.hidden = true; });
+    }
   } catch (_error) { /* the badge is cosmetic */ }
 }
 

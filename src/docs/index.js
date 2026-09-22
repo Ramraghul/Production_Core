@@ -21,6 +21,7 @@ const express = require('express');
 const { PAGES, findPage } = require('./catalogue');
 const { renderMarkdown, highlight, escapeHtml, isViewableSource } = require('./renderer');
 const { layout, pageBody, sourceBody, directoryBody, notFoundBody } = require('./template');
+const { requestOrigin, isLocalOrigin } = require('../api/origin');
 const config = require('../config');
 
 const ROOT = config.rootDir;
@@ -39,6 +40,23 @@ function loadPage(page) {
   const entry = { ...rendered, source, mtimeMs: stat.mtimeMs, updatedAt: stat.mtime };
   cache.set(page.slug, entry);
   return entry;
+}
+
+/**
+ * Point the examples at the address the reader is on.
+ *
+ * The markdown is written for someone running the app locally, so its curl
+ * examples say `localhost:1880`. Read on the live site, they should say the
+ * live URL - a visitor copying an example should hit the instance they are
+ * looking at, not one that is not running on their machine. Only code blocks
+ * are touched: prose such as "run npm start, then open localhost:1880" is a
+ * local-run instruction and stays one. Other ports (MQTT on 1883, the local
+ * serverless preview on 3000) are local by nature and are left alone.
+ */
+function retargetExamples(html, origin) {
+  if (isLocalOrigin(origin)) return html;
+  return html.replace(/<pre[\s\S]*?<\/pre>/g, (block) =>
+    block.replace(/(?:https?:\/\/)?localhost:1880/g, origin));
 }
 
 /** True when the client wants a page rather than the raw markdown. */
@@ -159,7 +177,7 @@ function createDocsRouter() {
       toc: rendered.toc,
       body: pageBody({
         page,
-        rendered,
+        rendered: { ...rendered, html: retargetExamples(rendered.html, requestOrigin(req)) },
         previous: PAGES[position - 1] || null,
         next: PAGES[position + 1] || null,
         readingMinutes: Math.max(1, Math.round(rendered.words / 220))
@@ -176,4 +194,4 @@ function createDocsRouter() {
   return router;
 }
 
-module.exports = { createDocsRouter, resolveSource, loadPage };
+module.exports = { createDocsRouter, resolveSource, loadPage, retargetExamples };

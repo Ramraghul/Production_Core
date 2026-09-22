@@ -17,6 +17,7 @@ const compression = require('compression');
 const { buildRoutes } = require('./routes');
 const { buildSpec } = require('./openapi');
 const { mountSwagger } = require('./swagger');
+const { requestOrigin } = require('./origin');
 const { createDocsRouter } = require('../docs');
 const middleware = require('./middleware');
 const config = require('../config');
@@ -73,17 +74,23 @@ function createApp(ctx, options = {}) {
   app.use(middleware.requestLogger);
 
   // ---- OpenAPI document ---------------------------------------------------
-  // Rebuilt per request only in development, so editing the spec is a refresh
-  // rather than a restart; cached in production.
-  let cachedSpec = null;
-  const spec = () => {
-    if (config.isProduction && cachedSpec) return cachedSpec;
-    cachedSpec = buildSpec({ publicUrl: config.http.publicUrl });
-    return cachedSpec;
+  // The server listed is the origin the document was requested from, so each
+  // address the app answers on gets its own copy. Rebuilt per request in
+  // development, so editing the spec is a refresh rather than a restart;
+  // cached per origin in production, with the cache bounded because the Host
+  // header is the client's to choose.
+  const cachedSpecs = new Map();
+  const spec = (req) => {
+    const origin = requestOrigin(req);
+    if (config.isProduction && cachedSpecs.has(origin)) return cachedSpecs.get(origin);
+    const built = buildSpec({ origin });
+    if (cachedSpecs.size >= 20) cachedSpecs.delete(cachedSpecs.keys().next().value);
+    cachedSpecs.set(origin, built);
+    return built;
   };
 
-  app.get('/openapi.json', (_req, res) => res.json(spec()));
-  app.get('/api/v1/openapi.json', (_req, res) => res.json(spec()));
+  app.get('/openapi.json', (req, res) => res.json(spec(req)));
+  app.get('/api/v1/openapi.json', (req, res) => res.json(spec(req)));
 
   // ---- Swagger UI ---------------------------------------------------------
   mountSwagger(app);

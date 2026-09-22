@@ -41,6 +41,8 @@
 }
 
 * { box-sizing: border-box; }
+/* `hidden` must win over any display rule set on a class. */
+[hidden] { display: none !important; }
 
 html { -webkit-text-size-adjust: 100%; }
 

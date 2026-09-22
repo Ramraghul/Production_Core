@@ -1,6 +1,11 @@
 # Node-RED flows
 
-Open the editor at [`/red`](/red). Thirteen tabs, 204 nodes, seven custom nodes.
+Run the app locally (`npm start`) and open the editor at
+<http://localhost:1880/red>. Thirteen tabs, 204 nodes, seven custom nodes.
+
+The flows need a long-running Node-RED runtime, so they are not part of the
+live demo on Vercel; any full deployment (Docker, Render, Fly.io) serves them
+at `/red` on its own address.
 
 ## Flows as code
 

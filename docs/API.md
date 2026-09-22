@@ -1,8 +1,13 @@
 # REST API
 
-Base URL `/api/v1`. Interactive documentation with a working **Try it out** at
-[`/api-docs`](/api-docs); the raw OpenAPI 3.0 document is at
-[`/openapi.json`](/openapi.json).
+| | Live demo | Running locally |
+|---|---|---|
+| **Base URL** | `https://production-factory-core.vercel.app/api/v1` | `http://localhost:1880/api/v1` |
+| **Swagger UI** (with a working **Try it out**) | <https://production-factory-core.vercel.app/api-docs> | <http://localhost:1880/api-docs> |
+| **OpenAPI 3.0 document** | <https://production-factory-core.vercel.app/openapi.json> | <http://localhost:1880/openapi.json> |
+
+The examples below are written against a local instance (`localhost:1880`).
+Read on the live site, they show the live URL instead.
 
 76 paths, 83 operations.
 

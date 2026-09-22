@@ -62,6 +62,8 @@ a minute beforehand.
 
 ## Vercel — serverless
 
+**Live: <https://production-factory-core.vercel.app>**
+
 Free on the Hobby plan (personal, non-commercial projects — a portfolio fits).
 Vercel runs **functions**, not servers: there is no long-lived process and no
 TCP port, and an instance is frozen between requests. So the Vercel deployment

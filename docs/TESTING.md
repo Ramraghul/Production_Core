@@ -1,6 +1,6 @@
 # Testing
 
-387 tests across fourteen Jest suites plus a real-process smoke test.
+392 tests across fourteen Jest suites plus a real-process smoke test.
 
 ```bash
 npm test               # everything
@@ -25,7 +25,7 @@ npm run smoke          # boot the full stack and drive it
 | `test/unit/simulator` | 23 | Fault model distributions, tick behaviour, the repair-bay drain |
 | `test/unit/stationControl` | 33 | Operator control, lockout from every direction, maintenance orders, PM scheduling, and the simulator respecting all of it |
 | `test/api/rest` | 43 | The API through real HTTP, including every error path |
-| `test/api/deployment` | 19 | The Vercel path: serverless defaults, Node-RED and MQTT never loaded, full-runtime paths explained or redirected, a frozen simulator catching up, the event stream ending before the platform limit, the write rate limit, and `vercel.json` pointing at real files |
+| `test/api/deployment` | 24 | The Vercel path: serverless defaults, one address per page (localhost locally, the live URL deployed), Node-RED and MQTT never loaded, full-runtime paths explained or redirected, a frozen simulator catching up, the event stream ending before the platform limit, the write rate limit, and `vercel.json` pointing at real files |
 | `test/api/docs` | 27 | The docs site: rendering, content negotiation, widgets, source-browser traversal refusal, and the reference endpoints behind the diagrams |
 | `test/nodes/customNodes` | 26 | The custom nodes inside a real headless Node-RED runtime |
 | `test/contract/openapi` | 13 | **Spec and implementation agree, both ways** |

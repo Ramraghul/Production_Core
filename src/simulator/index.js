@@ -65,8 +65,12 @@ class Simulator {
     this.running = false;
     this.timer = null;
     this.startedAt = null;
-    /** Wall-clock time of the last tick, for catching up after a freeze. */
-    this.lastTickAt = null;
+    /**
+     * Wall-clock time the plant has been simulated up to. Each tick moves it
+     * on by one tick - not to "now" - so a freeze leaves a visible gap for
+     * catchUp() to fill.
+     */
+    this.clockAt = null;
 
     /** Simulated seconds accumulated since start. */
     this.simSeconds = 0;
@@ -87,7 +91,7 @@ class Simulator {
     if (this.running) return this.status();
     this.running = true;
     this.startedAt = new Date().toISOString();
-    this.lastTickAt = Date.now();
+    this.clockAt = Date.now();
     this.#seedOccupancyFromWip();
 
     this.timer = setInterval(() => this.#safeTick(), this.tickMs);
@@ -107,17 +111,22 @@ class Simulator {
    * idle minutes into one request would be slow, and would stamp ten minutes
    * of output onto a single instant.
    *
+   * The gap is measured against the plant clock, not the time of the last
+   * tick. On thaw, Node fires the overdue interval once before it reads the
+   * request; measured from that tick, the gap would always look like zero.
+   *
    * @param {number} maxSeconds wall-clock seconds to replay at most
    * @returns {number} ticks run
    */
   catchUp(maxSeconds) {
-    if (!this.running || !maxSeconds || this.lastTickAt === null) return 0;
-    const behindMs = Date.now() - this.lastTickAt;
+    if (!this.running || !maxSeconds || this.clockAt === null) return 0;
+    const behindMs = Date.now() - this.clockAt;
     if (behindMs < this.tickMs * 2) return 0;
 
     const ticks = Math.floor(Math.min(behindMs, maxSeconds * 1000) / this.tickMs);
     for (let index = 0; index < ticks; index += 1) this.#safeTick();
-    this.lastTickAt = Date.now();
+    // Whatever lay beyond the limit is skipped, as an idle plant would sit.
+    if (behindMs > maxSeconds * 1000) this.clockAt = Date.now();
     this.counters.catchUpTicks += ticks;
     return ticks;
   }
@@ -148,7 +157,8 @@ class Simulator {
     const elapsed = (this.tickMs / 1000) * this.speed;
     this.simSeconds += elapsed;
     this.counters.ticks += 1;
-    this.lastTickAt = Date.now();
+    // One tick of plant time, never past the wall clock.
+    this.clockAt = Math.min((this.clockAt ?? Date.now()) + this.tickMs, Date.now());
 
     this.#stepStations(elapsed);
     this.#stepRepairBay();

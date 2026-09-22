@@ -8,6 +8,11 @@
  */
 
 const { escapeHtml } = require('./renderer');
+const config = require('../config');
+
+// The flow editor and the flow-served pages exist only where Node-RED runs,
+// or where a full runtime is configured to redirect to.
+const hasFlows = () => config.nodeRed.enabled || Boolean(config.runtime.fullRuntimeUrl);
 
 /** Inline SVG icons (24x24 stroke), so there is no icon font to load. */
 const ICONS = {
@@ -89,7 +94,7 @@ function layout({ title, body, pages, current = null, toc = [], accent = '#6366f
   <nav class="top-links">
     <a href="/">${icon('gauge', 16)}<span>Plant HMI</span></a>
     <a href="/api-docs">${icon('api', 16)}<span>API</span></a>
-    <a href="/red" target="_blank" rel="noopener">${icon('flow', 16)}<span>Flows</span></a>
+    ${hasFlows() ? `<a href="/red" target="_blank" rel="noopener">${icon('flow', 16)}<span>Flows</span></a>` : ''}
   </nav>
   <button class="icon-button" id="theme-button" type="button" aria-label="Toggle dark mode">
     <span class="theme-sun">${icon('sun')}</span><span class="theme-moon">${icon('moon')}</span>
@@ -103,7 +108,7 @@ function layout({ title, body, pages, current = null, toc = [], accent = '#6366f
     <div class="nav-group">Live system</div>
     <a class="nav-item plain" href="/">${icon('gauge')}<span class="nav-text"><b>Plant HMI</b></span></a>
     <a class="nav-item plain" href="/api-docs">${icon('api')}<span class="nav-text"><b>Swagger UI</b></span></a>
-    <a class="nav-item plain" href="/factory/board">${icon('flow')}<span class="nav-text"><b>Flow-served line board</b></span></a>
+    ${hasFlows() ? `<a class="nav-item plain" href="/factory/board">${icon('flow')}<span class="nav-text"><b>Flow-served line board</b></span></a>` : ''}
     <a class="nav-item plain" href="/docs/source/src">${icon('folder')}<span class="nav-text"><b>Browse the source</b></span></a>
   </nav>
 
