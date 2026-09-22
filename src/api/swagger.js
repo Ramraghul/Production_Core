@@ -18,6 +18,9 @@ const { createLogger } = require('../logger');
 
 const log = createLogger('api');
 
+/** The key published in this repository, safe to show on the page. */
+const DEMO_API_KEY = 'production-core-demo-key';
+
 /** The swagger-ui-dist files the page needs. */
 const SWAGGER_ASSETS = Object.freeze([
   'swagger-ui.css',
@@ -47,8 +50,13 @@ function swaggerAssetsPath() {
  * @param {boolean} [options.nodeRed] link the flow editor (absent on serverless)
  */
 function swaggerPage({ nodeRed = config.nodeRed.enabled || Boolean(config.runtime.fullRuntimeUrl) } = {}) {
+  // Only the published demo key is printed. A deployment that sets its own
+  // PC_API_KEY keeps it private, and the page just says a key is needed.
+  const keyHint = config.security.apiKey === DEMO_API_KEY
+    ? `writes need the demo key <code>${DEMO_API_KEY}</code> under <b>Authorize</b>`
+    : 'writes need an API key under <b>Authorize</b>';
   return `<!doctype html>
-<html lang="en">
+<html lang="en">file
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -75,7 +83,7 @@ function swaggerPage({ nodeRed = config.nodeRed.enabled || Boolean(config.runtim
   <div class="pc-banner">
     <h1>Production Core &mdash; Vehicle Assembly MES API</h1>
     <p>NorthStar Motors &middot; Windsor Assembly Plant, Ontario &middot; built on Node-RED.
-      Reads are open; writes need the demo key <code>production-core-demo-key</code> under <b>Authorize</b>.</p>
+      Reads are open; ${keyHint}.</p>
     <div class="pc-links">
       <a href="/">&#8592; Plant HMI</a>
       ${nodeRed ? '<a href="/red" target="_blank" rel="noopener">Node-RED flows</a>' : ''}
