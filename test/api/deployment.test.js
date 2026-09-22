@@ -27,6 +27,7 @@ const config = require('../../src/config');
 const { createServerlessApp } = require('../../src/serverless');
 const { swaggerPage } = require('../../src/api/swagger');
 const { buildStatic } = require('../../scripts/vercel-build');
+const { PAGES, SOURCE_FILES, SOURCE_PREFIXES } = require('../../src/docs/catalogue');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 
@@ -210,9 +211,30 @@ describe('Vercel build and configuration', () => {
 
     for (const [fn, settings] of Object.entries(vercel.functions)) {
       expect(fs.existsSync(path.join(ROOT, fn))).toBe(true);
-      // Files the function reads from disk at runtime, rather than require().
-      for (const needed of ['README.md', 'docs/**', 'src/**']) expect(settings.includeFiles).toContain(needed);
       expect(settings.maxDuration).toBeGreaterThan(config.http.sseMaxSeconds);
+    }
+  });
+
+  it('bundles every file the function reads from disk, within Vercel\'s 256-character limit', () => {
+    const vercel = JSON.parse(fs.readFileSync(path.join(ROOT, 'vercel.json'), 'utf8'));
+    const { includeFiles } = vercel.functions['api/index.js'];
+    // Vercel rejects the project at import time above this length.
+    expect(includeFiles.length).toBeLessThanOrEqual(256);
+
+    // What the docs read at runtime rather than require(): every page, the
+    // site's assets, and everything the source browser offers.
+    const needed = [
+      ...PAGES.map((page) => page.file),
+      ...SOURCE_FILES.filter((file) => fs.existsSync(path.join(ROOT, file))),
+      ...SOURCE_PREFIXES.map((prefix) => `${prefix}example.js`),
+      'src/docs/assets/docs.css'
+    ];
+    const missing = needed.filter((file) => !path.matchesGlob(file, includeFiles));
+    expect(missing).toEqual([]);
+
+    // And nothing that would bloat the bundle or leak a secret.
+    for (const file of ['node_modules/express/index.js', 'data/production-core.snapshot.json', '.env']) {
+      expect(path.matchesGlob(file, includeFiles)).toBe(false);
     }
 
     // The catch-all must come last, after the static Swagger page.

@@ -6,7 +6,7 @@
   "functions": {
     "api/index.js": {
       "maxDuration": 60,
-      "includeFiles": "{README.md,LICENSE,package.json,Dockerfile,docker-compose.yml,render.yaml,fly.toml,vercel.json,.vercelignore,.env.example,eslint.config.js,jest.config.js,.dockerignore,.gitignore,docs/**,src/**,nodes/**,flows/**,tools/**,scripts/**,test/**,public/**,deploy/**,.github/**}"
+      "includeFiles": "{*.md,*.json,*.yml,*.yaml,*.toml,*.js,Dockerfile,LICENSE,.*ignore,.env.example,api/**,docs/**,src/**,nodes/**,flows/**,tools/**,scripts/**,test/**,public/**,deploy/**,.github/**}"
     }
   },
   "rewrites": [

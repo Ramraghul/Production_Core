@@ -82,8 +82,9 @@ is the application **minus the two parts that need a process of their own**:
 
 1. Push the repository to GitHub.
 2. In Vercel: **Add New… → Project**, import the repository.
-3. Leave every setting at its default — [`vercel.json`](../vercel.json) supplies
-   them — and press **Deploy**.
+3. Set **Application Preset** to **Other**. Leave everything else at its
+   default — [`vercel.json`](../vercel.json) supplies the build command, output
+   directory and function settings — and press **Deploy**.
 
 Or from a terminal, with the [Vercel CLI](https://vercel.com/docs/cli):
 
