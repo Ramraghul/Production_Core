@@ -63,6 +63,11 @@ services:
       - key: PC_EDITOR_READONLY
         value: "true"
 
+      # Node-RED encrypts any credentials stored in flows with this. The code
+      # falls back to a published default, so let Render generate a real one.
+      - key: PC_CREDENTIAL_SECRET
+        generateValue: true
+
       # Render injects RENDER_EXTERNAL_URL; surfacing it makes the OpenAPI
       # document list the real public server instead of only a relative path.
       - key: PC_PUBLIC_URL
