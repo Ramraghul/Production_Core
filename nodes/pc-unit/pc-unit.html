@@ -1,0 +1,141 @@
+<script type="text/javascript">
+  RED.nodes.registerType('pc-unit', {
+    category: 'production core',
+    color: '#4a90d9',
+    defaults: {
+      name: { value: '' },
+      operation: { value: 'get', required: true },
+      vin: { value: 'payload.vin' },
+      vinType: { value: 'msg' },
+      station: { value: '' },
+      stationType: { value: 'str' },
+      reason: { value: '' },
+      operator: { value: 'flow' },
+      force: { value: false },
+      throwErrors: { value: false }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'font-awesome/fa-car',
+    paletteLabel: 'unit',
+    label: function () {
+      return this.name || ('unit: ' + (this.operation || 'get'));
+    },
+    labelStyle: function () { return this.name ? 'node_label_italic' : ''; },
+    oneditprepare: function () {
+      $('#node-input-vin').typedInput({
+        default: 'msg',
+        typeField: '#node-input-vinType',
+        types: ['msg', 'str', 'flow', 'global']
+      });
+      $('#node-input-station').typedInput({
+        default: 'str',
+        typeField: '#node-input-stationType',
+        types: ['str', 'msg', 'flow', 'global']
+      });
+
+      // Only show the fields the selected operation actually uses.
+      var toggle = function () {
+        var op = $('#node-input-operation').val();
+        $('.pc-row-station').toggle(op === 'move');
+        $('.pc-row-reason').toggle(['hold', 'rework', 'scrap'].indexOf(op) !== -1);
+        $('.pc-row-vin').toggle(['wip', 'list'].indexOf(op) === -1);
+        $('.pc-row-force').toggle(['move', 'complete'].indexOf(op) !== -1);
+      };
+      $('#node-input-operation').on('change', toggle);
+      toggle();
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="pc-unit">
+  <div class="form-row">
+    <label for="node-input-operation"><i class="fa fa-cog"></i> Operation</label>
+    <select id="node-input-operation" style="width:70%">
+      <option value="get">Get vehicle</option>
+      <option value="move">Move to station</option>
+      <option value="advance">Advance to next station</option>
+      <option value="hold">Hold</option>
+      <option value="rework">Send to rework</option>
+      <option value="release">Release back to line</option>
+      <option value="complete">Complete (release to yard)</option>
+      <option value="scrap">Scrap</option>
+      <option value="history">Build history</option>
+      <option value="wip">Work in progress</option>
+      <option value="list">List vehicles</option>
+    </select>
+  </div>
+  <div class="form-row pc-row-vin">
+    <label for="node-input-vin"><i class="fa fa-barcode"></i> VIN</label>
+    <input type="text" id="node-input-vin" style="width:70%">
+    <input type="hidden" id="node-input-vinType">
+  </div>
+  <div class="form-row pc-row-station">
+    <label for="node-input-station"><i class="fa fa-map-marker"></i> Station</label>
+    <input type="text" id="node-input-station" style="width:70%" placeholder="e.g. CHAS-10">
+    <input type="hidden" id="node-input-stationType">
+  </div>
+  <div class="form-row pc-row-reason">
+    <label for="node-input-reason"><i class="fa fa-comment"></i> Reason</label>
+    <input type="text" id="node-input-reason" style="width:70%" placeholder="Recorded on the event">
+  </div>
+  <div class="form-row">
+    <label for="node-input-operator"><i class="fa fa-user"></i> Operator</label>
+    <input type="text" id="node-input-operator" style="width:70%" placeholder="flow">
+  </div>
+  <div class="form-row pc-row-force">
+    <label for="node-input-force" style="width:auto">
+      <input type="checkbox" id="node-input-force" style="width:auto;vertical-align:top">
+      Force (bypass routing checks &mdash; recorded as an override)
+    </label>
+  </div>
+  <div class="form-row">
+    <label for="node-input-throwErrors" style="width:auto">
+      <input type="checkbox" id="node-input-throwErrors" style="width:auto;vertical-align:top">
+      Throw domain errors instead of setting <code>msg.error</code>
+    </label>
+  </div>
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name">
+  </div>
+</script>
+
+<script type="text/html" data-help-name="pc-unit">
+  <p>Operations on a vehicle moving through the plant. Calls the same production
+  service the REST API does, so the routing, quality-gate and state-machine rules
+  are identical whichever way a vehicle is driven.</p>
+
+  <h3>Inputs</h3>
+  <dl class="message-properties">
+    <dt class="optional">vin <span class="property-type">string</span></dt>
+    <dd>Vehicle identification number, when not set on the node.</dd>
+    <dt class="optional">stationId <span class="property-type">string</span></dt>
+    <dd>Target station for <code>move</code>.</dd>
+    <dt class="optional">reason <span class="property-type">string</span></dt>
+    <dd>Reason text for <code>hold</code>, <code>rework</code> and <code>scrap</code>.</dd>
+  </dl>
+
+  <h3>Outputs</h3>
+  <dl class="message-properties">
+    <dt>payload <span class="property-type">object</span></dt>
+    <dd>The updated vehicle, or <code>null</code> when the operation was refused.</dd>
+    <dt>error <span class="property-type">object | undefined</span></dt>
+    <dd>Set when a domain rule refused the operation, with a stable
+    <code>code</code> such as <code>QUALITY_HOLD</code> or
+    <code>INVALID_STATE_TRANSITION</code>. Branch on this with a switch node.</dd>
+  </dl>
+
+  <h3>Details</h3>
+  <p><b>Routing is enforced.</b> <code>move</code> only accepts the next station
+  on the vehicle's route. Use <code>advance</code> to let the plant model decide,
+  which is what most flows want.</p>
+  <p><b>Quality gates block.</b> Moving off a gate station while the vehicle
+  carries an open <code>CRITICAL</code> or undispositioned <code>MAJOR</code>
+  defect fails with <code>QUALITY_HOLD</code>. That is a normal outcome, not a
+  crash, so by default it arrives on <code>msg.error</code> rather than being
+  thrown.</p>
+  <p><b>Side effects.</b> Moving a vehicle also back-flushes the parts consumed
+  at the target station into its genealogy and installs any sub-assembly that
+  station is due to fit.</p>
+</script>

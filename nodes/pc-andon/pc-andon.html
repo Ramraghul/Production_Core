@@ -1,0 +1,106 @@
+<script type="text/javascript">
+  RED.nodes.registerType('pc-andon', {
+    category: 'production core',
+    color: '#d97f4a',
+    defaults: {
+      name: { value: '' },
+      operation: { value: 'raise', required: true },
+      station: { value: 'payload.stationId' },
+      stationType: { value: 'msg' },
+      callType: { value: 'MAINTENANCE' },
+      andonId: { value: 'payload.id' },
+      andonIdType: { value: 'msg' },
+      throwErrors: { value: false }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'font-awesome/fa-bell',
+    paletteLabel: 'andon',
+    label: function () {
+      return this.name || ('andon: ' + (this.operation || 'raise'));
+    },
+    labelStyle: function () { return this.name ? 'node_label_italic' : ''; },
+    oneditprepare: function () {
+      $('#node-input-station').typedInput({
+        default: 'msg', typeField: '#node-input-stationType',
+        types: ['msg', 'str', 'flow', 'global']
+      });
+      $('#node-input-andonId').typedInput({
+        default: 'msg', typeField: '#node-input-andonIdType',
+        types: ['msg', 'str', 'flow', 'global']
+      });
+      var toggle = function () {
+        var op = $('#node-input-operation').val();
+        $('.pc-row-station').toggle(op === 'raise');
+        $('.pc-row-calltype').toggle(op === 'raise');
+        $('.pc-row-id').toggle(['acknowledge', 'escalate', 'resolve'].indexOf(op) !== -1);
+      };
+      $('#node-input-operation').on('change', toggle);
+      toggle();
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="pc-andon">
+  <div class="form-row">
+    <label for="node-input-operation"><i class="fa fa-cog"></i> Operation</label>
+    <select id="node-input-operation" style="width:70%">
+      <option value="raise">Raise call</option>
+      <option value="acknowledge">Acknowledge</option>
+      <option value="escalate">Escalate</option>
+      <option value="resolve">Resolve</option>
+      <option value="sweep">Sweep overdue calls</option>
+      <option value="list">List calls</option>
+    </select>
+  </div>
+  <div class="form-row pc-row-station">
+    <label for="node-input-station"><i class="fa fa-map-marker"></i> Station</label>
+    <input type="text" id="node-input-station" style="width:70%">
+    <input type="hidden" id="node-input-stationType">
+  </div>
+  <div class="form-row pc-row-calltype">
+    <label for="node-input-callType"><i class="fa fa-bell"></i> Call type</label>
+    <select id="node-input-callType" style="width:70%">
+      <option value="MAINTENANCE">MAINTENANCE &mdash; equipment fault (stops line, 150 s)</option>
+      <option value="QUALITY">QUALITY &mdash; quality concern (stops line, 120 s)</option>
+      <option value="SAFETY">SAFETY &mdash; safety incident (stops line, 30 s)</option>
+      <option value="MATERIAL">MATERIAL &mdash; material shortage (180 s)</option>
+      <option value="PROCESS">PROCESS &mdash; process deviation (240 s)</option>
+      <option value="TOOLING">TOOLING &mdash; tooling change (300 s)</option>
+    </select>
+  </div>
+  <div class="form-row pc-row-id">
+    <label for="node-input-andonId"><i class="fa fa-hashtag"></i> Andon id</label>
+    <input type="text" id="node-input-andonId" style="width:70%">
+    <input type="hidden" id="node-input-andonIdType">
+  </div>
+  <div class="form-row">
+    <label for="node-input-throwErrors" style="width:auto">
+      <input type="checkbox" id="node-input-throwErrors" style="width:auto;vertical-align:top">
+      Throw domain errors instead of setting <code>msg.error</code>
+    </label>
+  </div>
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name">
+  </div>
+</script>
+
+<script type="text/html" data-help-name="pc-andon">
+  <p>The cord an operator pulls when something is wrong.</p>
+
+  <h3>Details</h3>
+  <p><b>Line-stopping calls stop the line.</b> Raising a
+  <code>MAINTENANCE</code>, <code>QUALITY</code> or <code>SAFETY</code> call also
+  puts the station <code>DOWN</code> and opens a linked downtime record;
+  resolving it reverses both. Keeping those coupled inside one operation is what
+  stops the andon log and the downtime log from disagreeing &mdash; and once
+  they disagree, nobody trusts either.</p>
+  <p><b>Response time is the metric.</b> Each call type carries an SLA. The
+  response clock stops on acknowledge, and <code>slaMet</code> records whether
+  someone arrived in time. What matters is not how many cords were pulled but
+  how fast help came.</p>
+  <p><b>Sweep</b> escalates every open call that has blown its SLA. Wire an
+  inject node to it on a 30-second timer to get automatic escalation up the
+  team leader &rarr; area supervisor &rarr; plant manager ladder.</p>
+</script>

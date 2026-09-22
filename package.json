@@ -1,0 +1,82 @@
+{
+  "name": "production-core",
+  "version": "1.0.0",
+  "description": "Production Core - an end-to-end automotive Manufacturing Execution System (MES) built on Node-RED: body shop, paint, door line, wheel & tire, sub-assembly, main assembly and end-of-line quality for a simulated vehicle assembly plant.",
+  "private": true,
+  "license": "MIT",
+  "author": "Production Core",
+  "keywords": [
+    "node-red",
+    "mes",
+    "manufacturing",
+    "automotive",
+    "iiot",
+    "isa-95",
+    "iso-22400",
+    "oee",
+    "traceability",
+    "genealogy",
+    "mqtt",
+    "industry-4.0"
+  ],
+  "engines": {
+    "node": ">=18.5.0"
+  },
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "NODE_ENV=development PC_LOG_LEVEL=debug node --watch src/index.js",
+    "start:serverless": "node scripts/serverless-local.js",
+    "build:flows": "node tools/build-flows.js",
+    "verify:flows": "node tools/build-flows.js --check",
+    "seed": "node tools/seed-cli.js",
+    "test": "jest --runInBand",
+    "test:unit": "jest test/unit --runInBand",
+    "test:api": "jest test/api --runInBand",
+    "test:nodes": "jest test/nodes --runInBand",
+    "test:contract": "jest test/contract --runInBand",
+    "test:watch": "jest --watch --runInBand",
+    "test:coverage": "jest --coverage --runInBand",
+    "lint": "eslint api src nodes tools scripts test",
+    "lint:fix": "eslint api src nodes tools scripts test --fix",
+    "smoke": "node scripts/smoke-test.js",
+    "vercel-build": "node scripts/vercel-build.js",
+    "docker:build": "docker build -t production-core:latest .",
+    "docker:run": "docker run --rm -p 1880:1880 -p 1883:1883 --name production-core production-core:latest"
+  },
+  "dependencies": {
+    "@node-red/util": "^4.1.15",
+    "aedes": "^1.1.3",
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "compression": "^1.8.2",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^4.22.3",
+    "helmet": "^8.3.0",
+    "highlight.js": "^11.12.0",
+    "markdown-it": "^15.0.2",
+    "mqtt": "^5.15.2",
+    "node-red": "^4.1.15",
+    "swagger-ui-dist": "^5.32.15"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "jest": "^30.5.1",
+    "node-red-node-test-helper": "^0.3.6",
+    "supertest": "^7.2.2"
+  },
+  "node-red": {
+    "version": ">=3.0.0",
+    "nodes": {
+      "pc-station": "nodes/pc-station/pc-station.js",
+      "pc-workorder": "nodes/pc-workorder/pc-workorder.js",
+      "pc-unit": "nodes/pc-unit/pc-unit.js",
+      "pc-genealogy": "nodes/pc-genealogy/pc-genealogy.js",
+      "pc-quality-gate": "nodes/pc-quality-gate/pc-quality-gate.js",
+      "pc-oee": "nodes/pc-oee/pc-oee.js",
+      "pc-andon": "nodes/pc-andon/pc-andon.js"
+    }
+  }
+}

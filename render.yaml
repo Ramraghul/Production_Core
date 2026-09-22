@@ -1,0 +1,72 @@
+# Render blueprint - https://render.com/docs/blueprint-spec
+#
+# Deploy: push this repository to GitHub, then in Render choose
+# "New +" -> "Blueprint" and point it at the repo. Render reads this file and
+# provisions the service; no dashboard configuration is needed.
+#
+# The free instance type is free indefinitely. Two consequences worth knowing:
+#
+#   - it spins down after 15 minutes without traffic, so the first request
+#     after an idle period waits ~50 s for a cold start
+#   - its disk is ephemeral, so PC_STORE is set to `memory` and the plant is
+#     reseeded from scratch on every start. That is why the seeder is
+#     deterministic and always produces a populated plant.
+
+services:
+  - type: web
+    name: production-core
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: oregon
+    branch: main
+
+    # Render routes traffic only once this returns 200.
+    healthCheckPath: /api/v1/ready
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PC_LOG_LEVEL
+        value: info
+
+      # Ephemeral disk: keep everything in memory and reseed on boot.
+      - key: PC_STORE
+        value: memory
+      - key: PC_SEED_ON_BOOT
+        value: "true"
+      - key: PC_SEED_SHIFTS
+        value: "3"
+
+      - key: PC_SIM_ENABLED
+        value: "true"
+      - key: PC_SIM_AUTOSTART
+        value: "true"
+      - key: PC_SIM_SPEED
+        value: "1"
+
+      # Render exposes a single HTTP port, so the MQTT TCP listener is not
+      # reachable from outside. It still runs for the flows, and MQTT over
+      # WebSocket is available at /mqtt.
+      - key: PC_MQTT_ENABLED
+        value: "true"
+      - key: PC_MQTT_WS_ENABLED
+        value: "true"
+
+      # Anyone can read the demo; writes need this key. Rotate it in the
+      # dashboard if you would rather not have it public.
+      - key: PC_API_KEY
+        value: production-core-demo-key
+
+      # Serve the flow editor read-only so a visitor can inspect the flows but
+      # not redeploy them.
+      - key: PC_EDITOR_READONLY
+        value: "true"
+
+      # Render injects RENDER_EXTERNAL_URL; surfacing it makes the OpenAPI
+      # document list the real public server instead of only a relative path.
+      - key: PC_PUBLIC_URL
+        fromService:
+          type: web
+          name: production-core
+          envVarKey: RENDER_EXTERNAL_URL

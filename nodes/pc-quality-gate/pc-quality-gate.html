@@ -1,0 +1,104 @@
+<script type="text/javascript">
+  RED.nodes.registerType('pc-quality-gate', {
+    category: 'production core',
+    color: '#e8a33d',
+    defaults: {
+      name: { value: '' },
+      mode: { value: 'evaluate', required: true },
+      vin: { value: 'payload.vin' },
+      vinType: { value: 'msg' },
+      station: { value: '' },
+      stationType: { value: 'str' },
+      holdOnFail: { value: true },
+      raiseAndon: { value: false },
+      throwErrors: { value: false }
+    },
+    inputs: 1,
+    outputs: 2,
+    outputLabels: ['pass', 'hold'],
+    icon: 'font-awesome/fa-check-square-o',
+    paletteLabel: 'quality gate',
+    label: function () {
+      return this.name || ('gate' + (this.station ? ': ' + this.station : ''));
+    },
+    labelStyle: function () { return this.name ? 'node_label_italic' : ''; },
+    oneditprepare: function () {
+      $('#node-input-vin').typedInput({
+        default: 'msg', typeField: '#node-input-vinType',
+        types: ['msg', 'str', 'flow', 'global']
+      });
+      $('#node-input-station').typedInput({
+        default: 'str', typeField: '#node-input-stationType',
+        types: ['str', 'msg', 'flow', 'global']
+      });
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="pc-quality-gate">
+  <div class="form-row">
+    <label for="node-input-mode"><i class="fa fa-cog"></i> Mode</label>
+    <select id="node-input-mode" style="width:70%">
+      <option value="evaluate">Evaluate open defects only</option>
+      <option value="inspect">Run inspection plan, then evaluate</option>
+    </select>
+  </div>
+  <div class="form-row">
+    <label for="node-input-vin"><i class="fa fa-barcode"></i> VIN</label>
+    <input type="text" id="node-input-vin" style="width:70%">
+    <input type="hidden" id="node-input-vinType">
+  </div>
+  <div class="form-row">
+    <label for="node-input-station"><i class="fa fa-map-marker"></i> Gate station</label>
+    <input type="text" id="node-input-station" style="width:70%" placeholder="e.g. BODY-50">
+    <input type="hidden" id="node-input-stationType">
+  </div>
+  <div class="form-row">
+    <label for="node-input-holdOnFail" style="width:auto">
+      <input type="checkbox" id="node-input-holdOnFail" style="width:auto;vertical-align:top">
+      Put the vehicle on hold when the gate fails
+    </label>
+  </div>
+  <div class="form-row">
+    <label for="node-input-raiseAndon" style="width:auto">
+      <input type="checkbox" id="node-input-raiseAndon" style="width:auto;vertical-align:top">
+      Raise a QUALITY andon call when the gate fails
+    </label>
+  </div>
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name">
+  </div>
+</script>
+
+<script type="text/html" data-help-name="pc-quality-gate">
+  <p>The control point of the quality system. Decides whether a vehicle may pass
+  a gate station, and routes it accordingly.</p>
+
+  <h3>Outputs</h3>
+  <ol class="node-ports">
+    <li>Pass &mdash; the vehicle is clean and may continue downstream.</li>
+    <li>Hold &mdash; an open <code>CRITICAL</code> or undispositioned
+    <code>MAJOR</code> defect blocks it. Route this to a repair-bay flow.</li>
+  </ol>
+
+  <h3>Inputs</h3>
+  <dl class="message-properties">
+    <dt class="optional">measurements <span class="property-type">object</span></dt>
+    <dd>Required in <b>inspect</b> mode: one value per characteristic in the
+    station's inspection plan, keyed by characteristic id.</dd>
+    <dt class="optional">inspector <span class="property-type">string</span></dt>
+    <dd>Recorded on the inspection.</dd>
+  </dl>
+
+  <h3>Details</h3>
+  <p>The decision is modelled as a branch, not an error, because that is what it
+  is: a routing outcome the flow should handle. The payload on either output is
+  the full gate evaluation, including <code>blockingDefects</code> and a
+  <code>recommendation</code> of <code>RELEASE</code>,
+  <code>REWORK_IN_STATION</code> or <code>HOLD_OFFLINE</code>.</p>
+  <p>In <b>inspect</b> mode the node first runs the station's inspection plan,
+  raising a defect for every characteristic outside its spec window, and then
+  evaluates the gate against the result &mdash; so a failing measurement blocks
+  the vehicle in a single node.</p>
+</script>

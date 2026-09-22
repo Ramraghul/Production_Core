@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Production Core &mdash; Windsor Assembly Plant</title>
+  <meta name="description" content="Manufacturing Execution System for a vehicle assembly plant, built on Node-RED.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127981;</text></svg>">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <span class="logo" aria-hidden="true">&#9881;</span>
+    <div>
+      <h1>Production Core</h1>
+      <p class="site">NorthStar Motors &middot; Windsor Assembly Plant, Ontario</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="shift-chip">
+      <span class="k">Shift</span>
+      <span class="v" id="shift-name">&mdash;</span>
+    </div>
+    <a class="head-link" href="/docs">Docs</a>
+    <a class="head-link" href="/api-docs">API</a>
+    <a class="head-link" href="/red" target="_blank" rel="noopener">Flows</a>
+    <div class="conn" id="conn" data-state="connecting">
+      <span class="dot"></span><span id="conn-text">connecting</span>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button class="tab is-active" data-panel="overview" role="tab">Plant overview</button>
+  <button class="tab" data-panel="stations" role="tab">Stations</button>
+  <button class="tab" data-panel="vehicles" role="tab">Vehicles</button>
+  <button class="tab" data-panel="quality" role="tab">Quality</button>
+  <button class="tab" data-panel="trace" role="tab">Traceability</button>
+  <button class="tab" data-panel="about" role="tab">About</button>
+</nav>
+
+<main>
+  <!-- ============================== OVERVIEW ============================== -->
+  <section class="panel is-active" id="panel-overview">
+    <div class="tiles" id="kpi-tiles">
+      <div class="tile skeleton"></div><div class="tile skeleton"></div>
+      <div class="tile skeleton"></div><div class="tile skeleton"></div>
+      <div class="tile skeleton"></div><div class="tile skeleton"></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head">
+          <h2>Production lines</h2>
+          <span class="hint">OEE = availability &times; performance &times; quality</span>
+        </div>
+        <div id="line-board" class="line-board"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Shift trend</h2>
+          <span class="hint">detail &amp; rolled-up shifts</span>
+        </div>
+        <div id="trend" class="trend"></div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head">
+          <h2>Live event feed</h2>
+          <span class="hint" id="event-count">0 events</span>
+        </div>
+        <ul class="feed" id="feed"></ul>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Andon board &amp; stoppages</h2></div>
+        <div id="andon-board" class="andon-board"></div>
+        <h3 class="sub-head">Feeder buffers</h3>
+        <div id="buffers" class="buffers"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== STATIONS ============================== -->
+  <section class="panel" id="panel-stations">
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head">
+          <h2>Maintenance in progress</h2>
+          <span class="hint" id="maint-count">&nbsp;</span>
+        </div>
+        <div id="maint-active" class="maint-active"></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h2>Preventive maintenance due</h2>
+          <span class="hint">cycles since last service vs the MTBF-derived interval</span>
+        </div>
+        <div id="pm-due" class="pm-due"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>Station grid <span class="hint">&mdash; click a station to control it</span></h2>
+        <div class="legend">
+          <span><i class="sw s-RUNNING"></i>running</span>
+          <span><i class="sw s-IDLE"></i>idle</span>
+          <span><i class="sw s-STARVED"></i>starved</span>
+          <span><i class="sw s-BLOCKED"></i>blocked</span>
+          <span><i class="sw s-DOWN"></i>down</span>
+          <span><i class="sw s-STOPPED"></i>stopped</span>
+          <span><i class="sw s-MAINTENANCE"></i>maintenance</span>
+          <span><span class="lock-glyph" aria-hidden="true">&#128274;</span>locked</span>
+        </div>
+      </div>
+      <div id="station-grid" class="station-grid"></div>
+    </div>
+  </section>
+
+  <!-- ============================== VEHICLES ============================== -->
+  <section class="panel" id="panel-vehicles">
+    <div class="card">
+      <div class="card-head">
+        <h2>Work in progress</h2>
+        <span class="hint">vehicles on the floor right now</span>
+      </div>
+      <div id="wip-list" class="wip-list"></div>
+    </div>
+    <div class="card" id="vehicle-detail-card" hidden>
+      <div class="card-head"><h2 id="vehicle-title">Vehicle</h2></div>
+      <div id="vehicle-detail"></div>
+    </div>
+  </section>
+
+  <!-- ============================== QUALITY =============================== -->
+  <section class="panel" id="panel-quality">
+    <div class="tiles" id="quality-tiles"></div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head">
+          <h2>Defect Pareto</h2>
+          <span class="hint">by code, this shift</span>
+        </div>
+        <div id="pareto" class="pareto"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Open defects</h2></div>
+        <div id="defect-list" class="defect-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ TRACEABILITY ============================ -->
+  <section class="panel" id="panel-trace">
+    <div class="card">
+      <div class="card-head">
+        <h2>Recall analysis</h2>
+        <span class="hint">which vehicles contain a suspect supplier lot, and where are they now</span>
+      </div>
+      <p class="prose">
+        A supplier reports a bad batch. The question is not &ldquo;did we use it&rdquo; but
+        <em>which vehicles have it, and can we still stop them</em>. Pick a lot below;
+        the query runs against an index, so it answers across the whole build history
+        in milliseconds.
+      </p>
+      <div class="recall-controls">
+        <select id="lot-select" aria-label="Supplier lot"><option>loading lots&hellip;</option></select>
+        <button id="run-recall" class="btn">Run recall query</button>
+      </div>
+      <div id="recall-result"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>Vehicle genealogy</h2>
+        <span class="hint">the as-built record, sealed at release</span>
+      </div>
+      <div class="recall-controls">
+        <input id="vin-input" type="text" placeholder="Enter a VIN, e.g. 2NSAURE1XTW001042" spellcheck="false">
+        <button id="lookup-vin" class="btn">Look up</button>
+      </div>
+      <div id="genealogy-result"></div>
+    </div>
+  </section>
+
+  <!-- ================================ ABOUT =============================== -->
+  <section class="panel" id="panel-about">
+    <div class="card prose-card">
+      <h2>What this is</h2>
+      <p>
+        A working Manufacturing Execution System for a vehicle assembly plant, built on
+        <strong>Node-RED</strong>. Seven production lines and 43 stations &mdash; body shop,
+        paint, door line, wheel &amp; tire, sub-assembly, main assembly and end-of-line
+        quality &mdash; with real domain rules behind them.
+      </p>
+
+      <h3>What it actually enforces</h3>
+      <ul>
+        <li><strong>Routing.</strong> A vehicle cannot skip a station. Attempts are rejected, not logged.</li>
+        <li><strong>Quality gates.</strong> A unit carrying an open critical defect does not move, and cannot be released.</li>
+        <li><strong>Genealogy.</strong> Every part is recorded with its supplier lot at the point of use. The record is append-only and sealed at release.</li>
+        <li><strong>Single consumption.</strong> A serialised sub-assembly can be fitted to exactly one vehicle, ever.</li>
+        <li><strong>VINs.</strong> Real ISO 3779 identifiers with valid check digits &mdash; they decode in any off-the-shelf VIN decoder.</li>
+      </ul>
+
+      <h3>Where to look</h3>
+      <div class="links">
+        <a class="link-card" href="/red" target="_blank" rel="noopener">
+          <span class="lc-title">Node-RED flows &rarr;</span>
+          <span class="lc-sub">12 tabs, 183 nodes, 7 custom nodes. Generated from a declarative plant spec.</span>
+        </a>
+        <a class="link-card" href="/api-docs" target="_blank" rel="noopener">
+          <span class="lc-title">REST API (Swagger) &rarr;</span>
+          <span class="lc-sub">71 operations. Try <code>POST /trace/recall</code> first.</span>
+        </a>
+        <a class="link-card" href="/factory/board" target="_blank" rel="noopener">
+          <span class="lc-title">Line board &rarr;</span>
+          <span class="lc-sub">An HTML page served by the Node-RED flows themselves.</span>
+        </a>
+        <a class="link-card" href="/docs/ARCHITECTURE.md" target="_blank" rel="noopener">
+          <span class="lc-title">Architecture notes &rarr;</span>
+          <span class="lc-sub">Why the domain is a library and the flows are the orchestration.</span>
+        </a>
+      </div>
+
+      <h3>Standards it follows</h3>
+      <p class="muted">
+        ISA-95 / IEC 62264 plant hierarchy &middot; ISO 22400-2 OEE and KPI definitions &middot;
+        ISO 3779 VIN structure &middot; Six Big Losses downtime classification.
+      </p>
+
+      <p class="muted small" id="about-version"></p>
+    </div>
+  </section>
+</main>
+
+<div class="drawer-scrim" id="drawer-scrim" hidden></div>
+<aside class="drawer" id="station-drawer" aria-hidden="true" aria-labelledby="drawer-title" role="dialog">
+  <header class="drawer-head">
+    <div>
+      <div class="drawer-kicker" id="drawer-kicker">Station</div>
+      <h2 id="drawer-title">&mdash;</h2>
+    </div>
+    <button class="icon-btn" id="drawer-close" type="button" aria-label="Close">&times;</button>
+  </header>
+  <div class="drawer-body" id="drawer-body"></div>
+</aside>
+
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="js/stations.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

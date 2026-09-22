@@ -1,0 +1,13 @@
+node_modules
+coverage
+.git
+.github
+.env
+.env.local
+data/*.json
+data/*.jsonl
+*.log
+test
+docs/*.png
+.vscode
+.idea

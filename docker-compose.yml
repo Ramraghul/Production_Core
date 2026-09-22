@@ -1,0 +1,48 @@
+# Local development stack.
+#
+#   docker compose up --build
+#
+# Everything the application needs is inside the one container: there is no
+# database service and no broker service to start, because the store is
+# in-process and the MQTT broker is embedded.
+
+services:
+  production-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: production-core:latest
+    container_name: production-core
+    restart: unless-stopped
+
+    ports:
+      - "1880:1880"   # HMI, Node-RED editor, REST API, Swagger UI
+      - "1883:1883"   # MQTT broker, for an external client such as MQTT Explorer
+
+    environment:
+      NODE_ENV: production
+      PC_LOG_LEVEL: info
+      # `file` keeps plant history across container restarts via the volume
+      # below; switch to `memory` to get a fresh plant on every start.
+      PC_STORE: file
+      PC_DATA_DIR: /app/data
+      PC_SEED_ON_BOOT: "true"
+      PC_SEED_SHIFTS: "3"
+      PC_SIM_ENABLED: "true"
+      PC_SIM_SPEED: "1"
+      PC_API_KEY: production-core-demo-key
+
+    volumes:
+      # Named volume, not a bind mount: the container runs as an unprivileged
+      # user and a host bind mount would usually be owned by root.
+      - production-core-data:/app/data
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:1880/api/v1/ready"]
+      interval: 30s
+      timeout: 5s
+      start_period: 40s
+      retries: 3
+
+volumes:
+  production-core-data:

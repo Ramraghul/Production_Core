@@ -1,0 +1,98 @@
+<script type="text/javascript">
+  RED.nodes.registerType('pc-workorder', {
+    category: 'production core',
+    color: '#8a6fc4',
+    defaults: {
+      name: { value: '' },
+      operation: { value: 'list', required: true },
+      orderId: { value: 'payload.id' },
+      orderIdType: { value: 'msg' },
+      modelCode: { value: '' },
+      quantity: { value: 0 },
+      createUnits: { value: 0 },
+      throwErrors: { value: false }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'font-awesome/fa-list-alt',
+    paletteLabel: 'work order',
+    label: function () {
+      return this.name || ('work order: ' + (this.operation || 'list'));
+    },
+    labelStyle: function () { return this.name ? 'node_label_italic' : ''; },
+    oneditprepare: function () {
+      $('#node-input-orderId').typedInput({
+        default: 'msg', typeField: '#node-input-orderIdType',
+        types: ['msg', 'str', 'flow', 'global']
+      });
+      var toggle = function () {
+        var op = $('#node-input-operation').val();
+        $('.pc-row-id').toggle(['create', 'list'].indexOf(op) === -1);
+        $('.pc-row-create').toggle(op === 'create');
+        $('.pc-row-units').toggle(op === 'release');
+      };
+      $('#node-input-operation').on('change', toggle);
+      toggle();
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="pc-workorder">
+  <div class="form-row">
+    <label for="node-input-operation"><i class="fa fa-cog"></i> Operation</label>
+    <select id="node-input-operation" style="width:70%">
+      <option value="list">List work orders</option>
+      <option value="get">Get work order</option>
+      <option value="create">Create work order</option>
+      <option value="release">Release to the floor</option>
+      <option value="transition">Change status</option>
+    </select>
+  </div>
+  <div class="form-row pc-row-id">
+    <label for="node-input-orderId"><i class="fa fa-hashtag"></i> Order id</label>
+    <input type="text" id="node-input-orderId" style="width:70%">
+    <input type="hidden" id="node-input-orderIdType">
+  </div>
+  <div class="form-row pc-row-create">
+    <label for="node-input-modelCode"><i class="fa fa-car"></i> Model</label>
+    <select id="node-input-modelCode" style="width:70%">
+      <option value="NS-AURORA-EV">NorthStar Aurora (BEV sedan)</option>
+      <option value="NS-BOREALIS-HEV">NorthStar Borealis (hybrid SUV)</option>
+      <option value="NS-VOYAGEUR-ICE">NorthStar Voyageur (pickup)</option>
+    </select>
+  </div>
+  <div class="form-row pc-row-create">
+    <label for="node-input-quantity"><i class="fa fa-sort-numeric-asc"></i> Quantity</label>
+    <input type="number" id="node-input-quantity" style="width:70%" min="1" max="2000" placeholder="1">
+  </div>
+  <div class="form-row pc-row-units">
+    <label for="node-input-createUnits"><i class="fa fa-sort-numeric-asc"></i> Units</label>
+    <input type="number" id="node-input-createUnits" style="width:70%" min="0" placeholder="All remaining">
+  </div>
+  <div class="form-row">
+    <label for="node-input-throwErrors" style="width:auto">
+      <input type="checkbox" id="node-input-throwErrors" style="width:auto;vertical-align:top">
+      Throw domain errors instead of setting <code>msg.error</code>
+    </label>
+  </div>
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name">
+  </div>
+</script>
+
+<script type="text/html" data-help-name="pc-workorder">
+  <p>Production scheduling: create, release and track build orders.</p>
+
+  <h3>Details</h3>
+  <p><b>Release is what creates vehicles.</b> Each unit gets a check-digit-valid
+  ISO 3779 VIN and an open genealogy record at release, so feeder lines can be
+  sequenced against a VIN before the body exists.</p>
+  <p><b>Release is incremental.</b> Releasing an order that is already on the
+  floor mints more units from it rather than failing, up to the order quantity.
+  Set <b>Units</b> to pull the next few vehicles instead of materialising a
+  500-unit order at once, which is how a real line works.</p>
+  <p>Counters (<code>quantityStarted</code>, <code>quantityCompleted</code>,
+  <code>quantityScrapped</code>) are maintained by the production service as
+  vehicles move, and the order closes itself when its quantity is met.</p>
+</script>

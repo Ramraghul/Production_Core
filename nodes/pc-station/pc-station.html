@@ -1,0 +1,139 @@
+<script type="text/javascript">
+  RED.nodes.registerType('pc-station', {
+    category: 'production core',
+    color: '#5aab72',
+    defaults: {
+      name: { value: '' },
+      operation: { value: 'get', required: true },
+      station: { value: 'payload.stationId' },
+      stationType: { value: 'msg' },
+      state: { value: 'RUNNING' },
+      reasonCode: { value: '' },
+      lineFilter: { value: '' },
+      maintenanceType: { value: '' },
+      throwErrors: { value: false }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'font-awesome/fa-industry',
+    paletteLabel: 'station',
+    label: function () {
+      return this.name || ('station: ' + (this.operation || 'get'));
+    },
+    labelStyle: function () { return this.name ? 'node_label_italic' : ''; },
+    oneditprepare: function () {
+      $('#node-input-station').typedInput({
+        default: 'msg',
+        typeField: '#node-input-stationType',
+        types: ['msg', 'str', 'flow', 'global']
+      });
+      var toggle = function () {
+        var op = $('#node-input-operation').val();
+        $('.pc-row-state').toggle(op === 'setState');
+        $('.pc-row-reason').toggle(op === 'setState' || op === 'stop');
+        $('.pc-row-line').toggle(op === 'list' || op === 'pmStatus');
+        $('.pc-row-station').toggle(op !== 'list' && op !== 'pmStatus');
+        $('.pc-row-mtype').toggle(op === 'maintenance');
+      };
+      $('#node-input-operation').on('change', toggle);
+      toggle();
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="pc-station">
+  <div class="form-row">
+    <label for="node-input-operation"><i class="fa fa-cog"></i> Operation</label>
+    <select id="node-input-operation" style="width:70%">
+      <option value="get">Get state</option>
+      <option value="setState">Set state</option>
+      <option value="cycle">Record cycle</option>
+      <option value="telemetry">Record telemetry</option>
+      <option value="list">List stations</option>
+      <option disabled>──────────</option>
+      <option value="control">Control view</option>
+      <option value="start">Start (operator)</option>
+      <option value="stop">Stop (operator lockout)</option>
+      <option value="maintenance">Start maintenance</option>
+      <option value="completeMaintenance">Complete maintenance</option>
+      <option value="pmStatus">PM status (all stations)</option>
+    </select>
+  </div>
+  <div class="form-row pc-row-station">
+    <label for="node-input-station"><i class="fa fa-map-marker"></i> Station</label>
+    <input type="text" id="node-input-station" style="width:70%">
+    <input type="hidden" id="node-input-stationType">
+  </div>
+  <div class="form-row pc-row-state">
+    <label for="node-input-state"><i class="fa fa-toggle-on"></i> State</label>
+    <select id="node-input-state" style="width:70%">
+      <option value="RUNNING">RUNNING &mdash; producing</option>
+      <option value="IDLE">IDLE &mdash; able to run, nothing to do</option>
+      <option value="STARVED">STARVED &mdash; no work arriving</option>
+      <option value="BLOCKED">BLOCKED &mdash; downstream full</option>
+      <option value="DOWN">DOWN &mdash; equipment fault</option>
+      <option value="CHANGEOVER">CHANGEOVER</option>
+      <option value="MAINTENANCE">MAINTENANCE</option>
+      <option value="OFFLINE">OFFLINE &mdash; not scheduled</option>
+    </select>
+  </div>
+  <div class="form-row pc-row-reason">
+    <label for="node-input-reasonCode"><i class="fa fa-tags"></i> Reason code</label>
+    <input type="text" id="node-input-reasonCode" style="width:70%" placeholder="e.g. ROBOT_FAULT (optional)">
+  </div>
+  <div class="form-row pc-row-mtype">
+    <label for="node-input-maintenanceType"><i class="fa fa-wrench"></i> Type</label>
+    <select id="node-input-maintenanceType" style="width:70%">
+      <option value="">Auto (corrective if down, else preventive)</option>
+      <option value="PREVENTIVE">PREVENTIVE &mdash; planned</option>
+      <option value="PREDICTIVE">PREDICTIVE &mdash; condition-based</option>
+      <option value="CORRECTIVE">CORRECTIVE &mdash; repair</option>
+    </select>
+  </div>
+  <div class="form-row pc-row-line">
+    <label for="node-input-lineFilter"><i class="fa fa-filter"></i> Line</label>
+    <input type="text" id="node-input-lineFilter" style="width:70%" placeholder="All lines">
+  </div>
+  <div class="form-row">
+    <label for="node-input-throwErrors" style="width:auto">
+      <input type="checkbox" id="node-input-throwErrors" style="width:auto;vertical-align:top">
+      Throw domain errors instead of setting <code>msg.error</code>
+    </label>
+  </div>
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name">
+  </div>
+</script>
+
+<script type="text/html" data-help-name="pc-station">
+  <p>Reads and changes station state, and records production cycles and sensor
+  telemetry.</p>
+
+  <h3>Details</h3>
+  <p><b>Downtime is automatic.</b> Moving a station into <code>DOWN</code>,
+  <code>STARVED</code>, <code>BLOCKED</code>, <code>MAINTENANCE</code> or
+  <code>CHANGEOVER</code> opens a downtime record; moving it back out closes
+  one. A flow gets correct ISO 22400 downtime accounting just by reporting
+  state, with no separate bookkeeping.</p>
+  <p><b>Micro-stops are filtered.</b> An unplanned stop shorter than
+  <code>PC_MIN_DOWNTIME_SECONDS</code> (default 60 s) is discarded rather than
+  logged. A station blocked for four seconds is a minor stoppage, and recording
+  it as a breakdown would bury the real failures. It still depresses the
+  performance factor, which is where ISO 22400 puts idling and minor stops.</p>
+  <p><b>Operator control and lockout.</b> <code>stop</code> puts the station in
+  a locked <code>STOPPED</code> mode and <code>maintenance</code> in a locked
+  <code>MAINTENANCE</code> mode. While locked, automated state changes -
+  including <code>setState</code> from this node - are refused with
+  <code>INVALID_STATE_TRANSITION</code>, and vehicles cannot be moved in. Only
+  <code>start</code> and <code>completeMaintenance</code> release it. Every
+  control operation returns the station's control view, with
+  <code>allowedActions</code> telling the next node what is now legal.</p>
+  <p><b>Maintenance</b> opens a maintenance order with a checklist for the
+  station's capability. Pass <code>msg.checklist</code> (an array of the tasks
+  done) to <code>completeMaintenance</code>; anything omitted is recorded as not
+  done. If the work answered an andon call, completing it resolves the call.</p>
+  <p><b>Reason codes.</b> Leave the reason code blank and one is inferred from
+  the target state. Set it explicitly when the flow knows better &mdash; for
+  example <code>TOOL_BREAKAGE</code> rather than a generic equipment failure.</p>
+</script>

@@ -1,0 +1,94 @@
+<script type="text/javascript">
+  RED.nodes.registerType('pc-oee', {
+    category: 'production core',
+    color: '#3d9e9e',
+    defaults: {
+      name: { value: '' },
+      scope: { value: 'plant', required: true },
+      target: { value: '' },
+      targetType: { value: 'str' },
+      shifts: { value: 8 },
+      throwErrors: { value: false }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'font-awesome/fa-tachometer',
+    paletteLabel: 'OEE',
+    label: function () {
+      return this.name || ('OEE: ' + (this.scope || 'plant'));
+    },
+    labelStyle: function () { return this.name ? 'node_label_italic' : ''; },
+    oneditprepare: function () {
+      $('#node-input-target').typedInput({
+        default: 'str', typeField: '#node-input-targetType',
+        types: ['str', 'msg', 'flow', 'global']
+      });
+      var toggle = function () {
+        var scope = $('#node-input-scope').val();
+        $('.pc-row-target').toggle(['station', 'line'].indexOf(scope) !== -1);
+        $('.pc-row-shifts').toggle(scope === 'trend');
+      };
+      $('#node-input-scope').on('change', toggle);
+      toggle();
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="pc-oee">
+  <div class="form-row">
+    <label for="node-input-scope"><i class="fa fa-crosshairs"></i> Scope</label>
+    <select id="node-input-scope" style="width:70%">
+      <option value="plant">Plant</option>
+      <option value="line">Line</option>
+      <option value="station">Station</option>
+      <option value="dashboard">Full dashboard</option>
+      <option value="trend">Shift trend</option>
+    </select>
+  </div>
+  <div class="form-row pc-row-target">
+    <label for="node-input-target"><i class="fa fa-map-marker"></i> Target</label>
+    <input type="text" id="node-input-target" style="width:70%" placeholder="Line or station id">
+    <input type="hidden" id="node-input-targetType">
+  </div>
+  <div class="form-row pc-row-shifts">
+    <label for="node-input-shifts"><i class="fa fa-clock-o"></i> Shifts</label>
+    <input type="number" id="node-input-shifts" style="width:70%" min="1" max="30" placeholder="8">
+  </div>
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name">
+  </div>
+</script>
+
+<script type="text/html" data-help-name="pc-oee">
+  <p>ISO 22400-2 overall equipment effectiveness, at station, line or plant
+  scope.</p>
+
+  <pre>Availability = Actual production time / Planned busy time
+Performance  = Ideal cycle time x Total count / Actual production time
+Quality      = First-pass good count / Total count
+OEE          = Availability x Performance x Quality</pre>
+
+  <h3>Inputs</h3>
+  <dl class="message-properties">
+    <dt class="optional">since <span class="property-type">string</span></dt>
+    <dd>ISO-8601 window start. Defaults to the current shift, which is what
+    every operator screen in a plant is scoped to.</dd>
+    <dt class="optional">until <span class="property-type">string</span></dt>
+    <dd>ISO-8601 window end.</dd>
+  </dl>
+
+  <h3>Details</h3>
+  <p><b>A line is not the average of its stations.</b> A line can only run as
+  fast as its constraint, so availability and performance come from the
+  bottleneck station, while quality compounds along the route &mdash; a defect
+  at any station spoils the unit.</p>
+  <p><b>Performance is capped at 100%.</b> A station reporting more output than
+  its ideal cycle time allows means the master data is wrong, not that the
+  station is superhuman. The value is capped and a
+  <code>PERFORMANCE_CAPPED</code> warning is attached rather than letting a bad
+  cycle time silently inflate plant OEE.</p>
+  <p>The payload also carries a <code>losses</code> waterfall in seconds, which
+  sums back to net planned time &mdash; availability loss, performance loss,
+  quality loss and value-adding time.</p>
+</script>

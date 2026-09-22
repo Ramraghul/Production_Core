@@ -1,0 +1,96 @@
+<script type="text/javascript">
+  RED.nodes.registerType('pc-genealogy', {
+    category: 'production core',
+    color: '#c45f5f',
+    defaults: {
+      name: { value: '' },
+      operation: { value: 'get', required: true },
+      vin: { value: 'payload.vin' },
+      vinType: { value: 'msg' },
+      lotCode: { value: 'payload.lotCode' },
+      lotCodeType: { value: 'msg' },
+      throwErrors: { value: false }
+    },
+    inputs: 1,
+    outputs: 1,
+    icon: 'font-awesome/fa-sitemap',
+    paletteLabel: 'genealogy',
+    label: function () {
+      return this.name || ('genealogy: ' + (this.operation || 'get'));
+    },
+    labelStyle: function () { return this.name ? 'node_label_italic' : ''; },
+    oneditprepare: function () {
+      $('#node-input-vin').typedInput({
+        default: 'msg', typeField: '#node-input-vinType',
+        types: ['msg', 'str', 'flow', 'global']
+      });
+      $('#node-input-lotCode').typedInput({
+        default: 'msg', typeField: '#node-input-lotCodeType',
+        types: ['msg', 'str', 'flow', 'global']
+      });
+      var toggle = function () {
+        var op = $('#node-input-operation').val();
+        $('.pc-row-vin').toggle(['get', 'trace'].indexOf(op) !== -1);
+        $('.pc-row-lot').toggle(['recall', 'lotUsage'].indexOf(op) !== -1);
+      };
+      $('#node-input-operation').on('change', toggle);
+      toggle();
+    }
+  });
+</script>
+
+<script type="text/html" data-template-name="pc-genealogy">
+  <div class="form-row">
+    <label for="node-input-operation"><i class="fa fa-cog"></i> Operation</label>
+    <select id="node-input-operation" style="width:70%">
+      <option value="get">Get genealogy tree</option>
+      <option value="trace">Full vehicle trace</option>
+      <option value="recall">Recall analysis</option>
+      <option value="lotUsage">Where a lot was used</option>
+      <option value="lots">List supplier lots</option>
+    </select>
+  </div>
+  <div class="form-row pc-row-vin">
+    <label for="node-input-vin"><i class="fa fa-barcode"></i> VIN</label>
+    <input type="text" id="node-input-vin" style="width:70%">
+    <input type="hidden" id="node-input-vinType">
+  </div>
+  <div class="form-row pc-row-lot">
+    <label for="node-input-lotCode"><i class="fa fa-cubes"></i> Lot code</label>
+    <input type="text" id="node-input-lotCode" style="width:70%" placeholder="e.g. BREMBO-PN-BRAKE-FRONT-2638B">
+    <input type="hidden" id="node-input-lotCodeType">
+  </div>
+  <div class="form-row">
+    <label for="node-input-throwErrors" style="width:auto">
+      <input type="checkbox" id="node-input-throwErrors" style="width:auto;vertical-align:top">
+      Throw domain errors instead of setting <code>msg.error</code>
+    </label>
+  </div>
+  <div class="form-row">
+    <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+    <input type="text" id="node-input-name" placeholder="Name">
+  </div>
+</script>
+
+<script type="text/html" data-help-name="pc-genealogy">
+  <p>As-built traceability: what went into a vehicle, and which vehicles contain
+  a suspect part.</p>
+
+  <h3>Recall analysis</h3>
+  <p>The operation worth demonstrating. Given a supplier lot code it returns
+  every affected VIN, split by where each vehicle is now &mdash;
+  <code>IN_PLANT</code>, <code>FINISHED_GOODS</code>, <code>SHIPPED</code> or
+  <code>SCRAPPED</code> &mdash; with an estimated containment cost and a
+  recommended action. Lot lookups run against a maintained index, so this
+  answers in milliseconds across the whole build history rather than scanning
+  every vehicle.</p>
+  <p>The <code>IN_PLANT</code> count is the number that can still be stopped
+  before they ship, which is the only cheap outcome once a bad lot is
+  confirmed &mdash; so it is the number the flow should act on.</p>
+
+  <h3>Details</h3>
+  <p>Genealogy is a tree, not a list: a vehicle contains serialised
+  sub-assemblies, and those contain their own lot-coded parts. The record is
+  append-only and is sealed when the vehicle is released, after which nothing
+  can be added &mdash; evidence that can be edited is not evidence.</p>
+</script>

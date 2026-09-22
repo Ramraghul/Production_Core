@@ -1,0 +1,58 @@
+# Fly.io configuration.
+#
+#   fly launch --no-deploy --copy-config
+#   fly deploy
+#
+# Fly's free allowance covers a shared-cpu-1x machine with 256 MB, but this
+# application wants more headroom than that once Node-RED is loaded, so 512 MB
+# is configured below. Check Fly's current pricing before assuming it is free -
+# their free tier has changed more than once.
+#
+# `auto_stop_machines` scales to zero when idle, which keeps cost at zero on a
+# pay-as-you-go account at the price of a cold start on the next request.
+
+app = "production-core"
+primary_region = "yyz"   # Toronto, near the plant this simulates
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "1880"
+  PC_STORE = "memory"
+  PC_SEED_ON_BOOT = "true"
+  PC_SEED_SHIFTS = "3"
+  PC_SIM_ENABLED = "true"
+  PC_SIM_SPEED = "1"
+  PC_EDITOR_READONLY = "true"
+  PC_MQTT_ENABLED = "true"
+  PC_MQTT_WS_ENABLED = "true"
+
+[http_service]
+  internal_port = 1880
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "40s"
+    method = "GET"
+    path = "/api/v1/ready"
+
+# The MQTT broker on 1883 is reachable only if you also allocate a dedicated
+# IPv4 address, which Fly charges for. The flows use it in-process either way,
+# and browsers can reach it over WebSocket at /mqtt.
+[[services]]
+  internal_port = 1883
+  protocol = "tcp"
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

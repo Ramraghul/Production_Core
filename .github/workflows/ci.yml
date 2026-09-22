@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+# Cancel an in-flight run when a newer commit lands on the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test on Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # 18 is the floor declared in package.json engines; 22 is what the
+        # Docker image ships. Both are tested so the floor stays honest.
+        node: ['18', '20', '22']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Verify generated flows are in step with their source
+        # flows/flows.json is a build output. If this fails, someone edited it
+        # by hand or forgot to run `npm run build:flows`.
+        run: npm run verify:flows
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Coverage
+        if: matrix.node == '22'
+        run: npm run test:coverage
+
+      - name: Upload coverage
+        if: matrix.node == '22'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 7
+
+  smoke:
+    name: End-to-end smoke test
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Boot the full stack and exercise it
+        # Starts the store, MQTT broker, Express, Node-RED and the simulator in
+        # one process and drives them over HTTP and MQTT - the parts the unit
+        # suites deliberately stub out.
+        run: npm run smoke
+
+  docker:
+    name: Build container image
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: production-core:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run the image and check it comes up healthy
+        run: |
+          docker run -d --name pc -p 1880:1880 \
+            -e PC_SEED_SHIFTS=1 \
+            production-core:ci
+
+          # Readiness returns 503 until the plant model is loaded.
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:1880/api/v1/ready > /dev/null 2>&1; then
+              echo "ready after ${attempt} attempt(s)"
+              break
+            fi
+            if [ "$attempt" = "40" ]; then
+              echo "container did not become ready"
+              docker logs pc
+              exit 1
+            fi
+            sleep 3
+          done
+
+          curl -fsS http://127.0.0.1:1880/api/v1/health | head -c 400; echo
+          curl -fsS http://127.0.0.1:1880/api/v1/kpi/dashboard > /dev/null
+          curl -fsS http://127.0.0.1:1880/factory/status > /dev/null
+          curl -fsS http://127.0.0.1:1880/openapi.json > /dev/null
+          echo "container image is serving the API, the flows and the docs"
+
+      - name: Container logs
+        if: always()
+        run: docker logs pc || true
+
+      - name: Stop
+        if: always()
+        run: docker rm -f pc || true

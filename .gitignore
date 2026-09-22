@@ -1,0 +1,18 @@
+node_modules/
+coverage/
+*.log
+npm-debug.log*
+.DS_Store
+.env
+.env.local
+data/*.json
+data/*.jsonl
+!data/.gitkeep
+.node-red/
+.nyc_output/
+dist/
+tmp/
+
+# Vercel
+.vercel/
+public/api-docs/

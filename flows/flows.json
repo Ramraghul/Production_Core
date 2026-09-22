@@ -1,0 +1,3734 @@
+[
+  {
+    "id": "23e3566df660c204",
+    "type": "mqtt-broker",
+    "name": "Plant Broker (embedded)",
+    "broker": "${PC_MQTT_HOST}",
+    "port": "${PC_MQTT_PORT}",
+    "clientid": "production-core-flows",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "ccae231466f1151f",
+    "type": "tab",
+    "label": "00 - Plant Overview",
+    "disabled": false,
+    "info": "# Plant Overview\n\nEvery plant event is mirrored onto MQTT by the application and arrives here.\nThis tab normalises the feed, routes it by severity, and re-publishes a\nplant status heartbeat that the HMI and any external system can subscribe to.\n\n**Topics consumed**: `northstar/win/plant/event/#`\n\n**Topics produced**: `northstar/win/plant/status`",
+    "env": []
+  },
+  {
+    "id": "fdc72498617db72b",
+    "z": "ccae231466f1151f",
+    "x": 140,
+    "y": 80,
+    "wires": [],
+    "type": "comment",
+    "name": "Plant event ingest",
+    "info": "Plant event ingest\n\nThe embedded broker republishes every domain event onto the topic tree.\nSubscribing here rather than calling the API means a flow reacts to what\nhappened, instead of polling for what changed."
+  },
+  {
+    "id": "a8db5c343637e632",
+    "z": "ccae231466f1151f",
+    "x": 140,
+    "y": 142,
+    "wires": [
+      [
+        "b5c841a62c4427ea"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "all plant events",
+    "topic": "northstar/win/plant/event/#",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "b5c841a62c4427ea",
+    "z": "ccae231466f1151f",
+    "x": 340,
+    "y": 142,
+    "wires": [
+      [
+        "324e290070a90da3",
+        "1365e389b5462bbe"
+      ]
+    ],
+    "type": "function",
+    "name": "normalise envelope",
+    "func": "// The broker delivers the full event envelope. Flatten the parts a flow\n// normally branches on into msg properties so downstream switch nodes stay\n// readable, and keep the whole envelope on msg.payload.\nconst event = msg.payload || {};\n\nmsg.eventType = event.type || \"unknown\";\nmsg.severity = event.severity || \"info\";\nmsg.stationId = event.stationId || null;\nmsg.lineId = event.lineId || null;\nmsg.vin = event.vin || null;\nmsg.topic = event.type;\n\n// A short human-readable line for the event feed.\nconst p = event.payload || {};\nmsg.summary = [\n  event.type,\n  msg.vin ? `VIN ${msg.vin}` : null,\n  msg.stationId ? `at ${msg.stationId}` : null,\n  p.reason || p.reasonLabel || p.label || null\n].filter(Boolean).join(\" \");\n\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "324e290070a90da3",
+    "z": "ccae231466f1151f",
+    "x": 540,
+    "y": 142,
+    "wires": [
+      [
+        "69efb580a04c8c12"
+      ],
+      [
+        "c77578f1a7d3c474"
+      ],
+      [
+        "f2a2b49ff25ed6ae"
+      ]
+    ],
+    "type": "switch",
+    "name": "route by severity",
+    "property": "severity",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "eq",
+        "v": "error",
+        "vt": "str"
+      },
+      {
+        "t": "eq",
+        "v": "warning",
+        "vt": "str"
+      },
+      {
+        "t": "else"
+      }
+    ],
+    "checkall": "true",
+    "repair": false,
+    "outputs": 3
+  },
+  {
+    "id": "69efb580a04c8c12",
+    "z": "ccae231466f1151f",
+    "x": 740,
+    "y": 80,
+    "wires": [],
+    "type": "debug",
+    "name": "errors",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "summary",
+    "targetType": "msg",
+    "statusVal": "summary",
+    "statusType": "auto"
+  },
+  {
+    "id": "c77578f1a7d3c474",
+    "z": "ccae231466f1151f",
+    "x": 740,
+    "y": 204,
+    "wires": [],
+    "type": "debug",
+    "name": "warnings",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "summary",
+    "targetType": "msg",
+    "statusVal": "summary",
+    "statusType": "auto"
+  },
+  {
+    "id": "f2a2b49ff25ed6ae",
+    "z": "ccae231466f1151f",
+    "x": 740,
+    "y": 328,
+    "wires": [],
+    "type": "debug",
+    "name": "info",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "summary",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto"
+  },
+  {
+    "id": "1365e389b5462bbe",
+    "z": "ccae231466f1151f",
+    "x": 740,
+    "y": 452,
+    "wires": [],
+    "type": "link out",
+    "name": "plant events",
+    "mode": "link",
+    "links": []
+  },
+  {
+    "id": "772b6782fb14607a",
+    "z": "ccae231466f1151f",
+    "x": 140,
+    "y": 576,
+    "wires": [],
+    "type": "comment",
+    "name": "Plant status heartbeat",
+    "info": "Plant status heartbeat\n\nPublishes a compact plant summary every 15 seconds so a subscriber gets\ncurrent state without having to replay the event log."
+  },
+  {
+    "id": "a15810e7424ed9a8",
+    "z": "ccae231466f1151f",
+    "x": 140,
+    "y": 638,
+    "wires": [
+      [
+        "f03718ef7de74a1c"
+      ]
+    ],
+    "type": "inject",
+    "name": "every 15s",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "15",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "5",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "f03718ef7de74a1c",
+    "z": "ccae231466f1151f",
+    "x": 340,
+    "y": 638,
+    "wires": [
+      [
+        "e375dc6ce2ed8f78"
+      ]
+    ],
+    "type": "pc-oee",
+    "name": "plant dashboard",
+    "scope": "dashboard",
+    "target": "",
+    "targetType": "str",
+    "shifts": 8,
+    "throwErrors": false
+  },
+  {
+    "id": "e375dc6ce2ed8f78",
+    "z": "ccae231466f1151f",
+    "x": 540,
+    "y": 638,
+    "wires": [
+      [
+        "572c3eab667cc7fb"
+      ]
+    ],
+    "type": "function",
+    "name": "shape status",
+    "func": "// Trim the dashboard payload down to what a status subscriber needs. The\n// full dashboard is large, and a heartbeat that ships 40 kB every 15\n// seconds is a heartbeat nobody subscribes to.\nconst d = msg.payload;\n\nmsg.payload = {\n  site: \"Windsor Assembly Plant\",\n  generatedAt: d.generatedAt,\n  shift: d.window.shift,\n  oee: d.headline.oee,\n  rating: d.headline.rating,\n  jph: d.headline.jph,\n  targetJph: d.headline.targetJph,\n  unitsCompleted: d.headline.unitsCompleted,\n  fpyPct: d.headline.fpyPct,\n  wip: d.headline.wip,\n  constraintLine: d.headline.constraintLine,\n  stationsDown: d.stations.downNow,\n  andonOpen: d.andon.open,\n  lines: d.lines.map((l) => ({ id: l.lineId, oee: l.oee, jph: l.jph, wip: l.wip }))\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "572c3eab667cc7fb",
+    "z": "ccae231466f1151f",
+    "x": 740,
+    "y": 638,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "plant status",
+    "topic": "northstar/win/plant/status",
+    "qos": "0",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "4efebbe816fe45fe",
+    "z": "ccae231466f1151f",
+    "x": 140,
+    "y": 824,
+    "wires": [
+      [
+        "1f8187554ee932b0"
+      ]
+    ],
+    "type": "catch",
+    "name": "catch flow errors",
+    "scope": null,
+    "uncaught": false
+  },
+  {
+    "id": "1f8187554ee932b0",
+    "z": "ccae231466f1151f",
+    "x": 340,
+    "y": 824,
+    "wires": [
+      [
+        "37d3ed55e3a96c34"
+      ]
+    ],
+    "type": "function",
+    "name": "log flow error",
+    "func": "// A node that throws stops its own branch. Catching centrally means one\n// place to see what broke, and the flow keeps running.\nmsg.payload = {\n  source: msg.error?.source?.type || \"unknown\",\n  nodeId: msg.error?.source?.id || null,\n  message: msg.error?.message || \"unknown error\"\n};\nnode.warn(`flow error in ${msg.payload.source}: ${msg.payload.message}`);\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "37d3ed55e3a96c34",
+    "z": "ccae231466f1151f",
+    "x": 540,
+    "y": 824,
+    "wires": [],
+    "type": "debug",
+    "name": "flow errors",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.message",
+    "statusType": "auto"
+  },
+  {
+    "id": "930e009080b8da18",
+    "type": "tab",
+    "label": "10 - Body Shop",
+    "disabled": false,
+    "info": "# Body Shop\n\nUnderbody, framing and respot welding producing the body-in-white.\n\nTakt: **60s** | Stations: **5**\n\nSubscribes to this line's station events, tracks state, and publishes a\nrolled-up line status every 10 seconds.",
+    "env": []
+  },
+  {
+    "id": "416173b99ca36579",
+    "z": "930e009080b8da18",
+    "x": 140,
+    "y": 80,
+    "wires": [],
+    "type": "comment",
+    "name": "Body Shop",
+    "info": "Body Shop\n\nUnderbody, framing and respot welding producing the body-in-white."
+  },
+  {
+    "id": "ee7f3b4ebfbfa518",
+    "z": "930e009080b8da18",
+    "x": 140,
+    "y": 142,
+    "wires": [
+      [
+        "61ead9030f2a5e09"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "BODY station events",
+    "topic": "northstar/win/body/+/event",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "61ead9030f2a5e09",
+    "z": "930e009080b8da18",
+    "x": 340,
+    "y": 142,
+    "wires": [
+      [
+        "d607d185e2c07a3a"
+      ]
+    ],
+    "type": "function",
+    "name": "classify event",
+    "func": "const event = msg.payload || {};\nmsg.eventType = event.type;\nmsg.stationId = event.stationId;\nmsg.vin = event.vin;\n\n// Cycle completions drive the line counter; state changes drive the\n// station tiles. Everything else is passed through untouched.\nif (event.type === \"station.cycle\") {\n  const count = (flow.get(\"cycleCount\") || 0) + 1;\n  flow.set(\"cycleCount\", count);\n  msg.cycleCount = count;\n}\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "d607d185e2c07a3a",
+    "z": "930e009080b8da18",
+    "x": 540,
+    "y": 142,
+    "wires": [
+      [
+        "37d6037220495032"
+      ],
+      [
+        "6bf576e696971e88"
+      ],
+      [
+        "43c7d941849c71be"
+      ]
+    ],
+    "type": "switch",
+    "name": "by event type",
+    "property": "eventType",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "eq",
+        "v": "station.state",
+        "vt": "str"
+      },
+      {
+        "t": "eq",
+        "v": "station.cycle",
+        "vt": "str"
+      },
+      {
+        "t": "else"
+      }
+    ],
+    "checkall": "true",
+    "repair": false,
+    "outputs": 3
+  },
+  {
+    "id": "37d6037220495032",
+    "z": "930e009080b8da18",
+    "x": 740,
+    "y": 80,
+    "wires": [],
+    "type": "debug",
+    "name": "state changes",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload.payload",
+    "targetType": "msg",
+    "statusVal": "payload.payload.state",
+    "statusType": "auto"
+  },
+  {
+    "id": "6bf576e696971e88",
+    "z": "930e009080b8da18",
+    "x": 740,
+    "y": 204,
+    "wires": [],
+    "type": "debug",
+    "name": "cycles",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "cycleCount",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto"
+  },
+  {
+    "id": "43c7d941849c71be",
+    "z": "930e009080b8da18",
+    "x": 740,
+    "y": 328,
+    "wires": [],
+    "type": "debug",
+    "name": "other",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto"
+  },
+  {
+    "id": "a1c032419eaae637",
+    "z": "930e009080b8da18",
+    "x": 140,
+    "y": 452,
+    "wires": [
+      [
+        "b7545abd1a662e27"
+      ]
+    ],
+    "type": "inject",
+    "name": "every 10s",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "10",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "3",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "b7545abd1a662e27",
+    "z": "930e009080b8da18",
+    "x": 340,
+    "y": 452,
+    "wires": [
+      [
+        "76b5b58c9cab9161"
+      ]
+    ],
+    "type": "pc-oee",
+    "name": "BODY OEE",
+    "scope": "line",
+    "target": "BODY",
+    "targetType": "str",
+    "shifts": 8,
+    "throwErrors": false
+  },
+  {
+    "id": "76b5b58c9cab9161",
+    "z": "930e009080b8da18",
+    "x": 540,
+    "y": 452,
+    "wires": [
+      [
+        "688927f354ea2abe"
+      ]
+    ],
+    "type": "function",
+    "name": "shape line status",
+    "func": "const l = msg.payload;\nmsg.payload = {\n  lineId: l.lineId,\n  name: l.lineName,\n  oee: l.oee,\n  availability: l.availability,\n  performance: l.performance,\n  quality: l.quality,\n  rating: l.rating,\n  jph: l.throughput.jph,\n  targetJph: l.throughput.targetJph,\n  wip: l.wip,\n  constraintStation: l.constraintStation,\n  stationsDown: l.stations.filter((s) => s.openStop).length\n};\n\n// Surface a degrading line on the node status dot so it is visible in the\n// editor without opening the debug sidebar.\nnode.status({\n  fill: l.oee >= 85 ? \"green\" : l.oee >= 60 ? \"yellow\" : \"red\",\n  shape: \"dot\",\n  text: `OEE ${l.oee}% | ${l.throughput.jph} JPH`\n});\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "688927f354ea2abe",
+    "z": "930e009080b8da18",
+    "x": 740,
+    "y": 452,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "BODY status",
+    "topic": "northstar/win/body/status",
+    "qos": "0",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "9b02d6fb974cc7bf",
+    "type": "tab",
+    "label": "20 - Paint Shop",
+    "disabled": false,
+    "info": "# Paint Shop\n\nPaint quality is dominated by booth conditions. This tab watches humidity\nand temperature on the telemetry feed and raises a PROCESS andon before\nthe defects start, rather than reacting to them afterwards.",
+    "env": []
+  },
+  {
+    "id": "00b4067623457d13",
+    "z": "9b02d6fb974cc7bf",
+    "x": 140,
+    "y": 80,
+    "wires": [],
+    "type": "comment",
+    "name": "Booth condition monitoring",
+    "info": "Booth condition monitoring\n\nHumidity outside 58-70% and temperature outside 22-25C are the two\nreadings a paint shop alarms on: drift there shows up as dirt inclusion\nand orange peel about twenty minutes later."
+  },
+  {
+    "id": "a2389b3925e5ef98",
+    "z": "9b02d6fb974cc7bf",
+    "x": 140,
+    "y": 142,
+    "wires": [
+      [
+        "87e276253d188775"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "paint telemetry",
+    "topic": "northstar/win/paint/+/telemetry",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "87e276253d188775",
+    "z": "9b02d6fb974cc7bf",
+    "x": 340,
+    "y": 142,
+    "wires": [
+      [
+        "8028b13fc688ce07"
+      ]
+    ],
+    "type": "function",
+    "name": "check booth conditions",
+    "func": "const event = msg.payload || {};\nconst m = event.payload?.metrics || {};\nconst stationId = event.stationId;\n\n// Only the spray booths carry these readings.\nif (m.boothHumidityPct === undefined) return null;\n\nconst problems = [];\nif (m.boothHumidityPct < 58 || m.boothHumidityPct > 70) {\n  problems.push(`humidity ${m.boothHumidityPct}% outside 58-70%`);\n}\nif (m.boothTempC < 22 || m.boothTempC > 25) {\n  problems.push(`temperature ${m.boothTempC}C outside 22-25C`);\n}\nif (m.filmThicknessUm && (m.filmThicknessUm < 95 || m.filmThicknessUm > 135)) {\n  problems.push(`film build ${m.filmThicknessUm}um outside 95-135um`);\n}\n\nif (!problems.length) {\n  node.status({ fill: \"green\", shape: \"dot\", text: `${stationId} nominal` });\n  return null;\n}\n\n// Do not re-alarm the same station every few seconds; a booth drifts\n// slowly and a repeated call is noise the operator learns to ignore.\nconst key = `alarmed:${stationId}`;\nconst last = flow.get(key) || 0;\nif (Date.now() - last < 120000) return null;\nflow.set(key, Date.now());\n\nnode.status({ fill: \"red\", shape: \"dot\", text: `${stationId}: ${problems[0]}` });\nmsg.stationId = stationId;\nmsg.callType = \"PROCESS\";\nmsg.raisedBy = \"booth-monitor\";\nmsg.note = `Booth condition drift: ${problems.join(\"; \")}`;\nmsg.payload = { stationId, problems, metrics: m };\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "8028b13fc688ce07",
+    "z": "9b02d6fb974cc7bf",
+    "x": 540,
+    "y": 142,
+    "wires": [
+      [
+        "3821c6cdbdbc276d"
+      ]
+    ],
+    "type": "pc-andon",
+    "name": "raise PROCESS andon",
+    "operation": "raise",
+    "station": "stationId",
+    "stationType": "msg",
+    "callType": "PROCESS",
+    "andonId": "payload.id",
+    "andonIdType": "msg",
+    "throwErrors": false
+  },
+  {
+    "id": "3821c6cdbdbc276d",
+    "z": "9b02d6fb974cc7bf",
+    "x": 740,
+    "y": 142,
+    "wires": [],
+    "type": "debug",
+    "name": "booth alarms",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.note",
+    "statusType": "auto"
+  },
+  {
+    "id": "1380debdd8b6fddc",
+    "z": "9b02d6fb974cc7bf",
+    "x": 140,
+    "y": 328,
+    "wires": [],
+    "type": "comment",
+    "name": "Paint inspection gate (PAINT-60)",
+    "info": "Paint inspection gate (PAINT-60)\n\nRuns the IP-PAINT-VISUAL plan. A vehicle failing film build, colour\ndelta-E or orange peel is held here rather than carrying the defect into\ngeneral assembly, where the rework cost multiplies."
+  },
+  {
+    "id": "9db3c5d54e410d80",
+    "z": "9b02d6fb974cc7bf",
+    "x": 140,
+    "y": 390,
+    "wires": [
+      [
+        "bf1d4669370f5518"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "arrivals at PAINT-60",
+    "topic": "northstar/win/plant/event/unit/moved",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "bf1d4669370f5518",
+    "z": "9b02d6fb974cc7bf",
+    "x": 340,
+    "y": 390,
+    "wires": [
+      [
+        "8b9298a68fa9a938"
+      ]
+    ],
+    "type": "function",
+    "name": "only PAINT-60 arrivals",
+    "func": "const event = msg.payload || {};\nif (event.payload?.stationId !== \"PAINT-60\") return null;\n\nmsg.vin = event.vin;\nmsg.stationId = \"PAINT-60\";\n\n// Measurements the booth instruments would report for this body.\n// Mostly in spec, occasionally not - which is the point of having a gate.\nconst drift = Math.random() < 0.08;\nmsg.measurements = {\n  \"FILM-BUILD\": drift ? 88 + Math.random() * 6 : 104 + Math.random() * 14,\n  \"DELTA-E\": drift ? 0.85 + Math.random() * 0.4 : Math.random() * 0.6,\n  \"ORANGE-PEEL\": drift ? 15 + Math.random() * 4 : 5 + Math.random() * 7\n};\nmsg.inspector = \"paint-line-gauge\";\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "8b9298a68fa9a938",
+    "z": "9b02d6fb974cc7bf",
+    "x": 540,
+    "y": 390,
+    "wires": [
+      [
+        "58bc9c3bc6beef3f"
+      ],
+      [
+        "2529c3e2f1fdb98b"
+      ]
+    ],
+    "type": "pc-quality-gate",
+    "name": "IP-PAINT-VISUAL",
+    "mode": "inspect",
+    "vin": "vin",
+    "vinType": "msg",
+    "station": "PAINT-60",
+    "stationType": "str",
+    "holdOnFail": true,
+    "raiseAndon": false,
+    "throwErrors": false
+  },
+  {
+    "id": "58bc9c3bc6beef3f",
+    "z": "9b02d6fb974cc7bf",
+    "x": 740,
+    "y": 328,
+    "wires": [
+      [
+        "43e544531dc46ef3"
+      ]
+    ],
+    "type": "function",
+    "name": "pass to general assembly",
+    "func": "node.status({ fill: \"green\", shape: \"dot\", text: `${msg.vin} passed paint` });\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "2529c3e2f1fdb98b",
+    "z": "9b02d6fb974cc7bf",
+    "x": 740,
+    "y": 452,
+    "wires": [
+      [
+        "e08dec0a945b5a93"
+      ]
+    ],
+    "type": "function",
+    "name": "route to paint repair",
+    "func": "const gate = msg.payload;\nnode.warn(`${msg.vin} held at paint: ${gate.blockingDefects.map(d => d.code).join(\", \")}`);\nnode.status({ fill: \"red\", shape: \"dot\", text: `${msg.vin} -> repair` });\nmsg.payload = {\n  vin: msg.vin,\n  defects: gate.blockingDefects,\n  recommendation: gate.recommendation\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "43e544531dc46ef3",
+    "z": "9b02d6fb974cc7bf",
+    "x": 940,
+    "y": 328,
+    "wires": [],
+    "type": "debug",
+    "name": "passed",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto"
+  },
+  {
+    "id": "e08dec0a945b5a93",
+    "z": "9b02d6fb974cc7bf",
+    "x": 940,
+    "y": 452,
+    "wires": [],
+    "type": "debug",
+    "name": "paint repair queue",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.vin",
+    "statusType": "auto"
+  },
+  {
+    "id": "ca7232e33e3ffa58",
+    "type": "tab",
+    "label": "30 - Door Line",
+    "disabled": false,
+    "info": "# Door Line\n\nDoors are removed from the body after paint, trimmed offline on four\nparallel lanes, and re-hung in final assembly. Because the doors\nphysically belong to their own body, door sets are **broadcast-built**\nagainst a specific VIN and can never be fitted to another vehicle.",
+    "env": []
+  },
+  {
+    "id": "c96d8c590ab0cc5a",
+    "z": "ca7232e33e3ffa58",
+    "x": 140,
+    "y": 80,
+    "wires": [],
+    "type": "comment",
+    "name": "Broadcast build",
+    "info": "Broadcast build\n\nA door set carries the VIN it was removed from. The domain layer refuses\nto fit it to any other vehicle, so a mis-sequenced door is a hard error\nrather than a warranty claim eighteen months later."
+  },
+  {
+    "id": "5990f4a4213284c1",
+    "z": "ca7232e33e3ffa58",
+    "x": 140,
+    "y": 142,
+    "wires": [
+      [
+        "1352b96617ad0ea6"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "door line events",
+    "topic": "northstar/win/door/+/event",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "1352b96617ad0ea6",
+    "z": "ca7232e33e3ffa58",
+    "x": 340,
+    "y": 142,
+    "wires": [
+      [
+        "82593cb7bcfb5f7d"
+      ]
+    ],
+    "type": "function",
+    "name": "track door sets",
+    "func": "const event = msg.payload || {};\nmsg.eventType = event.type;\nmsg.stationId = event.stationId;\n\nif (event.type === \"subassembly.built\" && event.payload?.classCode === \"DRS\") {\n  const built = (flow.get(\"doorSetsBuilt\") || 0) + 1;\n  flow.set(\"doorSetsBuilt\", built);\n  node.status({ fill: \"green\", shape: \"dot\", text: `${built} door sets built` });\n  msg.serial = event.payload.serial;\n  msg.forVin = event.payload.forVin;\n  return msg;\n}\nreturn null;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "82593cb7bcfb5f7d",
+    "z": "ca7232e33e3ffa58",
+    "x": 540,
+    "y": 142,
+    "wires": [],
+    "type": "debug",
+    "name": "door sets",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "serial",
+    "targetType": "msg",
+    "statusVal": "forVin",
+    "statusType": "auto"
+  },
+  {
+    "id": "70abf832882e9162",
+    "z": "ca7232e33e3ffa58",
+    "x": 140,
+    "y": 328,
+    "wires": [
+      [
+        "78d2ad6247ebdc94"
+      ]
+    ],
+    "type": "inject",
+    "name": "every 10s",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "10",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "4",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "78d2ad6247ebdc94",
+    "z": "ca7232e33e3ffa58",
+    "x": 340,
+    "y": 328,
+    "wires": [
+      [
+        "96f3f177c7006639"
+      ]
+    ],
+    "type": "pc-oee",
+    "name": "DOOR OEE",
+    "scope": "line",
+    "target": "DOOR",
+    "targetType": "str",
+    "shifts": 8,
+    "throwErrors": false
+  },
+  {
+    "id": "96f3f177c7006639",
+    "z": "ca7232e33e3ffa58",
+    "x": 540,
+    "y": 328,
+    "wires": [
+      [
+        "2ea717998150f103"
+      ]
+    ],
+    "type": "function",
+    "name": "publish door status",
+    "func": "const l = msg.payload;\nnode.status({\n  fill: l.oee >= 85 ? \"green\" : l.oee >= 60 ? \"yellow\" : \"red\",\n  shape: \"dot\",\n  text: `OEE ${l.oee}% | ${l.throughput.jph} sets/h`\n});\nmsg.payload = { lineId: l.lineId, oee: l.oee, jph: l.throughput.jph, rating: l.rating };\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "2ea717998150f103",
+    "z": "ca7232e33e3ffa58",
+    "x": 740,
+    "y": 328,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "door status",
+    "topic": "northstar/win/door/status",
+    "qos": "0",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "4924c9ad06d142b9",
+    "type": "tab",
+    "label": "40 - Wheel & Tire",
+    "disabled": false,
+    "info": "# Wheel & Tire Line\n\nFive parallel lanes mount, inflate, balance and program TPMS for one\nmatched wheel set per vehicle (four fitted plus a spare).\n\nResidual imbalance above 10 g fails the runout gate at TIRE-50, so the\nset never reaches final assembly.",
+    "env": []
+  },
+  {
+    "id": "842504e1f6c0b982",
+    "z": "4924c9ad06d142b9",
+    "x": 140,
+    "y": 80,
+    "wires": [],
+    "type": "comment",
+    "name": "Balance monitoring",
+    "info": "Balance monitoring\n\nImbalance trends upward as the balancer's spindle wears, so a rising\nmean is a maintenance signal well before any individual set fails."
+  },
+  {
+    "id": "c28c04b5463e059a",
+    "z": "4924c9ad06d142b9",
+    "x": 140,
+    "y": 142,
+    "wires": [
+      [
+        "116066d10ec9ccbc"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "balancer telemetry",
+    "topic": "northstar/win/tire/tire-30/telemetry",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "116066d10ec9ccbc",
+    "z": "4924c9ad06d142b9",
+    "x": 340,
+    "y": 142,
+    "wires": [
+      [
+        "d7aa1150a00c3e47"
+      ]
+    ],
+    "type": "function",
+    "name": "track balance trend",
+    "func": "const m = msg.payload?.payload?.metrics || {};\nif (m.passRatePct === undefined) return null;\n\n// Keep a rolling window rather than a single reading: one bad set is\n// noise, a falling mean over twenty is a worn spindle.\nconst window = context.get(\"window\") || [];\nwindow.push(m.passRatePct);\nif (window.length > 20) window.shift();\ncontext.set(\"window\", window);\n\nconst mean = window.reduce((a, b) => a + b, 0) / window.length;\nconst degrading = window.length >= 10 && mean < 95;\n\nnode.status({\n  fill: degrading ? \"yellow\" : \"green\",\n  shape: \"dot\",\n  text: `pass rate ${mean.toFixed(1)}% (n=${window.length})`\n});\n\nif (!degrading) return null;\n\nconst last = context.get(\"lastWarn\") || 0;\nif (Date.now() - last < 300000) return null;\ncontext.set(\"lastWarn\", Date.now());\n\nmsg.stationId = \"TIRE-30\";\nmsg.callType = \"TOOLING\";\nmsg.note = `Balancer pass rate down to ${mean.toFixed(1)}% over ${window.length} sets - check spindle runout`;\nmsg.payload = { stationId: \"TIRE-30\", meanPassRate: Number(mean.toFixed(2)), samples: window.length };\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "d7aa1150a00c3e47",
+    "z": "4924c9ad06d142b9",
+    "x": 540,
+    "y": 142,
+    "wires": [
+      [
+        "68ffb7a83028c1cd"
+      ]
+    ],
+    "type": "pc-andon",
+    "name": "raise TOOLING andon",
+    "operation": "raise",
+    "station": "stationId",
+    "stationType": "msg",
+    "callType": "TOOLING",
+    "andonId": "payload.id",
+    "andonIdType": "msg",
+    "throwErrors": false
+  },
+  {
+    "id": "68ffb7a83028c1cd",
+    "z": "4924c9ad06d142b9",
+    "x": 740,
+    "y": 142,
+    "wires": [],
+    "type": "debug",
+    "name": "balancer warnings",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.note",
+    "statusType": "auto"
+  },
+  {
+    "id": "45d806b04e3f56e7",
+    "z": "4924c9ad06d142b9",
+    "x": 140,
+    "y": 328,
+    "wires": [
+      [
+        "a3fa06ef1ae305bb"
+      ]
+    ],
+    "type": "inject",
+    "name": "every 10s",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "10",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "5",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "a3fa06ef1ae305bb",
+    "z": "4924c9ad06d142b9",
+    "x": 340,
+    "y": 328,
+    "wires": [
+      [
+        "18aaa27762a62246"
+      ]
+    ],
+    "type": "pc-oee",
+    "name": "TIRE OEE",
+    "scope": "line",
+    "target": "TIRE",
+    "targetType": "str",
+    "shifts": 8,
+    "throwErrors": false
+  },
+  {
+    "id": "18aaa27762a62246",
+    "z": "4924c9ad06d142b9",
+    "x": 540,
+    "y": 328,
+    "wires": [
+      [
+        "5380e6707858805d"
+      ]
+    ],
+    "type": "function",
+    "name": "publish tire status",
+    "func": "const l = msg.payload;\nnode.status({\n  fill: l.oee >= 85 ? \"green\" : l.oee >= 60 ? \"yellow\" : \"red\",\n  shape: \"dot\",\n  text: `OEE ${l.oee}% | ${l.throughput.jph} sets/h`\n});\nmsg.payload = { lineId: l.lineId, oee: l.oee, jph: l.throughput.jph, rating: l.rating };\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "5380e6707858805d",
+    "z": "4924c9ad06d142b9",
+    "x": 740,
+    "y": 328,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "tire status",
+    "topic": "northstar/win/tire/status",
+    "qos": "0",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "1ca202f81af80750",
+    "type": "tab",
+    "label": "50 - Sub-Assembly",
+    "disabled": false,
+    "info": "# Sub-Assembly Cells\n\nPowertrain, cockpit, seat set and corner modules, each serialised and\nhot-tested before it enters the buffer.\n\nThe flow below watches buffer depth. Final assembly starves within two\ntakts of a feeder stopping, so the warning has to come from the buffer\nlevel, not from the line stopping.",
+    "env": []
+  },
+  {
+    "id": "5fd61536f05247c7",
+    "z": "1ca202f81af80750",
+    "x": 140,
+    "y": 80,
+    "wires": [],
+    "type": "comment",
+    "name": "Buffer starvation watch",
+    "info": "Buffer starvation watch\n\nBelow two units of buffer, a feeder hiccup starves final assembly.\nThat is the point at which someone needs to know - not when the line stops."
+  },
+  {
+    "id": "1884740af40e26eb",
+    "z": "1ca202f81af80750",
+    "x": 140,
+    "y": 142,
+    "wires": [
+      [
+        "64cbfd860d7aaa05"
+      ]
+    ],
+    "type": "inject",
+    "name": "every 8s",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "8",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "2",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "64cbfd860d7aaa05",
+    "z": "1ca202f81af80750",
+    "x": 340,
+    "y": 142,
+    "wires": [
+      [
+        "97a6541c12b2a4c3"
+      ]
+    ],
+    "type": "function",
+    "name": "read buffer levels",
+    "func": "// The plant model and services are exposed to function nodes through\n// global context, so a flow can answer a domain question directly rather\n// than making an HTTP call back into its own process.\nconst core = global.get(\"productionCore\");\nmsg.payload = core.production.bufferLevels();\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "97a6541c12b2a4c3",
+    "z": "1ca202f81af80750",
+    "x": 540,
+    "y": 142,
+    "wires": [
+      [
+        "447784340a1e4f51"
+      ],
+      [
+        "71e2c6efc0bb02ee"
+      ]
+    ],
+    "type": "function",
+    "name": "check for starvation risk",
+    "func": "const buffers = msg.payload || [];\nconst atRisk = buffers.filter((b) => b.starvationRisk);\n\nnode.status({\n  fill: atRisk.length ? \"yellow\" : \"green\",\n  shape: \"dot\",\n  text: atRisk.length ? `${atRisk.length} classes low` : \"buffers healthy\"\n});\n\nif (!atRisk.length) return [null, msg];\n\n// One call per class at most every five minutes.\nconst now = Date.now();\nconst alerts = atRisk.filter((b) => {\n  const key = `alerted:${b.classCode}`;\n  if (now - (flow.get(key) || 0) < 300000) return false;\n  flow.set(key, now);\n  return true;\n});\nif (!alerts.length) return [null, msg];\n\nconst first = alerts[0];\nmsg.stationId = first.installsAt;\nmsg.callType = \"MATERIAL\";\nmsg.raisedBy = \"buffer-monitor\";\nmsg.note = `${first.classCode} buffer down to ${first.available} - ${first.installsAt} will starve`;\nmsg.payload = { atRisk: alerts, all: buffers };\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "447784340a1e4f51",
+    "z": "1ca202f81af80750",
+    "x": 740,
+    "y": 80,
+    "wires": [
+      [
+        "db4531416b386f89"
+      ]
+    ],
+    "type": "pc-andon",
+    "name": "raise MATERIAL andon",
+    "operation": "raise",
+    "station": "stationId",
+    "stationType": "msg",
+    "callType": "MATERIAL",
+    "andonId": "payload.id",
+    "andonIdType": "msg",
+    "throwErrors": false
+  },
+  {
+    "id": "71e2c6efc0bb02ee",
+    "z": "1ca202f81af80750",
+    "x": 740,
+    "y": 204,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "buffer levels",
+    "topic": "northstar/win/subasm/buffers",
+    "qos": "0",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "db4531416b386f89",
+    "z": "1ca202f81af80750",
+    "x": 940,
+    "y": 80,
+    "wires": [],
+    "type": "debug",
+    "name": "starvation alerts",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.note",
+    "statusType": "auto"
+  },
+  {
+    "id": "8edbcc573e300744",
+    "z": "1ca202f81af80750",
+    "x": 140,
+    "y": 390,
+    "wires": [],
+    "type": "comment",
+    "name": "Quarantine watch",
+    "info": "Quarantine watch\n\nA sub-assembly that fails its hot test is quarantined and can never be\nfitted. Tracking the rate is an early warning on an incoming supplier lot."
+  },
+  {
+    "id": "c5c93ec0211cc9d9",
+    "z": "1ca202f81af80750",
+    "x": 140,
+    "y": 452,
+    "wires": [
+      [
+        "1cc17da24a2e3bd9"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "quarantine events",
+    "topic": "northstar/win/plant/event/subassembly/quarantined",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "1cc17da24a2e3bd9",
+    "z": "1ca202f81af80750",
+    "x": 340,
+    "y": 452,
+    "wires": [
+      [
+        "5e08c818a0c70373"
+      ]
+    ],
+    "type": "function",
+    "name": "count quarantines",
+    "func": "const event = msg.payload || {};\nconst classCode = event.payload?.classCode || \"unknown\";\nconst counts = flow.get(\"quarantines\") || {};\ncounts[classCode] = (counts[classCode] || 0) + 1;\nflow.set(\"quarantines\", counts);\n\nconst total = Object.values(counts).reduce((a, b) => a + b, 0);\nnode.status({ fill: \"yellow\", shape: \"dot\", text: `${total} quarantined` });\n\nmsg.payload = { serial: event.payload?.serial, classCode, reason: event.payload?.quarantineReason, counts };\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "5e08c818a0c70373",
+    "z": "1ca202f81af80750",
+    "x": 540,
+    "y": 452,
+    "wires": [],
+    "type": "debug",
+    "name": "quarantined serials",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.serial",
+    "statusType": "auto"
+  },
+  {
+    "id": "bf83dbc29c43809d",
+    "type": "tab",
+    "label": "60 - Main Assembly",
+    "disabled": false,
+    "info": "# Main Assembly\n\nThe production spine: trim, chassis (including powertrain marriage) and\nfinal build.\n\nThis tab carries the torque verification for the critical-to-quality\nstations. A fastener outside its window at CHAS-10 is a safety defect,\nnot a cosmetic one, so it raises a CRITICAL defect that the end-of-line\ngate will refuse to release.",
+    "env": []
+  },
+  {
+    "id": "4b293e11e41e7a91",
+    "z": "bf83dbc29c43809d",
+    "x": 140,
+    "y": 80,
+    "wires": [],
+    "type": "comment",
+    "name": "Torque verification - critical to quality",
+    "info": "Torque verification - critical to quality\n\nCHAS-10 (powertrain marriage), CHAS-20 (suspension), FINAL-10 (wheels)\nand FINAL-20 (seats) are the fastening operations that hold the vehicle\ntogether. Every one is verified against its specification window."
+  },
+  {
+    "id": "9e3f4532fdd5d1be",
+    "z": "bf83dbc29c43809d",
+    "x": 140,
+    "y": 142,
+    "wires": [
+      [
+        "05ddc88ec8d71719"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "torque telemetry",
+    "topic": "northstar/win/mainasm/+/telemetry",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "05ddc88ec8d71719",
+    "z": "bf83dbc29c43809d",
+    "x": 340,
+    "y": 142,
+    "wires": [
+      [
+        "cc3bd62519d91f63"
+      ]
+    ],
+    "type": "function",
+    "name": "verify against spec",
+    "func": "const core = global.get(\"productionCore\");\nconst plant = global.get(\"plantModel\");\nconst event = msg.payload || {};\nconst m = event.payload?.metrics || {};\nconst stationId = event.stationId;\n\nif (m.lastTorqueNm === undefined || !m.lastTorqueNm) return null;\n\nconst station = plant.getStation(stationId);\nconst spec = station?.torqueSpecs?.[0];\nif (!spec) return null;\n\nconst low = spec.nm - spec.toleranceNm;\nconst high = spec.nm + spec.toleranceNm;\nconst value = m.lastTorqueNm;\nconst inSpec = value >= low && value <= high;\n\nnode.status({\n  fill: inSpec ? \"green\" : \"red\",\n  shape: \"dot\",\n  text: `${stationId} ${value}Nm (${low}-${high})`\n});\n\nif (inSpec) return null;\n\n// Find the vehicle currently at this station; a torque reading with no\n// vehicle behind it cannot be attributed and is dropped rather than\n// raised against the wrong VIN.\nconst state = core.repository.get(\"stationStates\", stationId);\nconst vin = state?.currentVin;\nif (!vin) return null;\n\nmsg.vin = vin;\nmsg.stationId = stationId;\nmsg.code = value < low ? \"TORQUE_LOW\" : \"TORQUE_HIGH\";\nmsg.payload = { vin, stationId, specId: spec.id, value, low, high };\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "cc3bd62519d91f63",
+    "z": "bf83dbc29c43809d",
+    "x": 540,
+    "y": 142,
+    "wires": [
+      [
+        "34e10fdad3f21129"
+      ]
+    ],
+    "type": "function",
+    "name": "raise torque defect",
+    "func": "const core = global.get(\"productionCore\");\nconst d = msg.payload;\n\nconst defect = core.quality.raiseDefect({\n  code: msg.code,\n  vin: d.vin,\n  stationId: d.stationId,\n  detectedBy: \"torque-monitor\",\n  measurement: { specId: d.specId, value: d.value, limits: [d.low, d.high] }\n});\n\nnode.warn(`${msg.code} on ${d.vin} at ${d.stationId}: ${d.value}Nm outside ${d.low}-${d.high}Nm`);\nmsg.payload = defect;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "34e10fdad3f21129",
+    "z": "bf83dbc29c43809d",
+    "x": 740,
+    "y": 142,
+    "wires": [],
+    "type": "debug",
+    "name": "torque defects",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.code",
+    "statusType": "auto"
+  },
+  {
+    "id": "a67312984af9ed37",
+    "z": "bf83dbc29c43809d",
+    "x": 140,
+    "y": 328,
+    "wires": [],
+    "type": "comment",
+    "name": "Powertrain marriage verification (CHAS-10)",
+    "info": "Powertrain marriage verification (CHAS-10)\n\nDecking is the point of no return: once the powertrain is bolted to the\nbody, separating them is hours of work. So the check that the right\nserialised powertrain went into the right VIN happens here, immediately."
+  },
+  {
+    "id": "401f3e0fc14281e4",
+    "z": "bf83dbc29c43809d",
+    "x": 140,
+    "y": 390,
+    "wires": [
+      [
+        "432e85afe04b242d"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "sub-assembly consumed",
+    "topic": "northstar/win/plant/event/subassembly/consumed",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "432e85afe04b242d",
+    "z": "bf83dbc29c43809d",
+    "x": 340,
+    "y": 390,
+    "wires": [
+      [
+        "f66b2063ab5ae209"
+      ]
+    ],
+    "type": "function",
+    "name": "verify genealogy link",
+    "func": "const core = global.get(\"productionCore\");\nconst event = msg.payload || {};\nconst p = event.payload || {};\n\nif (p.stationId !== \"CHAS-10\") return null;\n\nconst genealogy = core.repository.get(\"genealogies\", p.vin);\nconst linked = genealogy?.serialIndex?.includes(p.serial);\n\nnode.status({\n  fill: linked ? \"green\" : \"red\",\n  shape: \"dot\",\n  text: linked ? `${p.serial} -> ${p.vin}` : \"GENEALOGY LINK MISSING\"\n});\n\nmsg.payload = {\n  vin: p.vin,\n  serial: p.serial,\n  classCode: p.classCode,\n  genealogyLinked: Boolean(linked),\n  componentCount: genealogy?.components?.length || 0\n};\nmsg.vin = p.vin;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "f66b2063ab5ae209",
+    "z": "bf83dbc29c43809d",
+    "x": 540,
+    "y": 390,
+    "wires": [
+      [
+        "21c922454c5e5e38"
+      ],
+      [
+        "75275ef17d4a412e"
+      ]
+    ],
+    "type": "switch",
+    "name": "linked?",
+    "property": "payload.genealogyLinked",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "true"
+      },
+      {
+        "t": "false"
+      }
+    ],
+    "checkall": "true",
+    "repair": false,
+    "outputs": 2
+  },
+  {
+    "id": "21c922454c5e5e38",
+    "z": "bf83dbc29c43809d",
+    "x": 740,
+    "y": 328,
+    "wires": [],
+    "type": "debug",
+    "name": "marriages recorded",
+    "active": false,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto"
+  },
+  {
+    "id": "75275ef17d4a412e",
+    "z": "bf83dbc29c43809d",
+    "x": 740,
+    "y": 452,
+    "wires": [
+      [
+        "50fc1e8b31f7c78e"
+      ]
+    ],
+    "type": "function",
+    "name": "genealogy break",
+    "func": "// A consumed serial that is not in the vehicle's genealogy means the\n// traceability chain is broken for that VIN. That is a stop-the-line\n// condition: the vehicle cannot be certified as built.\nnode.error(`Genealogy link missing: ${msg.payload.serial} consumed by ${msg.payload.vin}`, msg);\nmsg.stationId = \"CHAS-10\";\nmsg.callType = \"QUALITY\";\nmsg.note = `Genealogy link missing for ${msg.payload.serial}`;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "50fc1e8b31f7c78e",
+    "z": "bf83dbc29c43809d",
+    "x": 940,
+    "y": 452,
+    "wires": [],
+    "type": "pc-andon",
+    "name": "stop the line",
+    "operation": "raise",
+    "station": "stationId",
+    "stationType": "msg",
+    "callType": "QUALITY",
+    "andonId": "payload.id",
+    "andonIdType": "msg",
+    "throwErrors": false
+  },
+  {
+    "id": "cc6bede470848c51",
+    "z": "bf83dbc29c43809d",
+    "x": 140,
+    "y": 638,
+    "wires": [
+      [
+        "8e19edac5e5c46d7"
+      ]
+    ],
+    "type": "inject",
+    "name": "every 10s",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "10",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "6",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "8e19edac5e5c46d7",
+    "z": "bf83dbc29c43809d",
+    "x": 340,
+    "y": 638,
+    "wires": [
+      [
+        "dc4f8c26966137cc"
+      ]
+    ],
+    "type": "pc-oee",
+    "name": "MAINASM OEE",
+    "scope": "line",
+    "target": "MAINASM",
+    "targetType": "str",
+    "shifts": 8,
+    "throwErrors": false
+  },
+  {
+    "id": "dc4f8c26966137cc",
+    "z": "bf83dbc29c43809d",
+    "x": 540,
+    "y": 638,
+    "wires": [
+      [
+        "720901f8cac8a86b"
+      ]
+    ],
+    "type": "function",
+    "name": "shape status",
+    "func": "const l = msg.payload;\nnode.status({\n  fill: l.oee >= 85 ? \"green\" : l.oee >= 60 ? \"yellow\" : \"red\",\n  shape: \"dot\",\n  text: `OEE ${l.oee}% | constraint ${l.constraintStation}`\n});\nmsg.payload = {\n  lineId: l.lineId, oee: l.oee, jph: l.throughput.jph,\n  constraintStation: l.constraintStation, wip: l.wip,\n  stations: l.stations.map((s) => ({ id: s.stationId, state: s.state, oee: s.oee }))\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "720901f8cac8a86b",
+    "z": "bf83dbc29c43809d",
+    "x": 740,
+    "y": 638,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "mainasm status",
+    "topic": "northstar/win/mainasm/status",
+    "qos": "0",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "5db75f2c0aa1d2be",
+    "type": "tab",
+    "label": "70 - Quality & EOL",
+    "disabled": false,
+    "info": "# Quality & End-of-Line\n\nAlignment, headlamp aim, roll and brake test, water leak, DTC scan and\nfinal audit.\n\nEOL-60 is the release gate. A vehicle leaves the plant only when every\ndefect against it is closed - which is why the flow completes the unit\nthrough the domain service rather than just marking a flag.",
+    "env": []
+  },
+  {
+    "id": "99ee5d8522bfe2c5",
+    "z": "5db75f2c0aa1d2be",
+    "x": 140,
+    "y": 80,
+    "wires": [],
+    "type": "comment",
+    "name": "End-of-line release gate (EOL-60)",
+    "info": "End-of-line release gate (EOL-60)\n\nThe last decision in the plant. Pass releases the vehicle to the yard and\nseals its genealogy record; hold sends it to the repair bay."
+  },
+  {
+    "id": "32853f07263dec54",
+    "z": "5db75f2c0aa1d2be",
+    "x": 140,
+    "y": 142,
+    "wires": [
+      [
+        "0a717c311d0b5e55"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "arrivals at EOL-60",
+    "topic": "northstar/win/plant/event/unit/moved",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "0a717c311d0b5e55",
+    "z": "5db75f2c0aa1d2be",
+    "x": 340,
+    "y": 142,
+    "wires": [
+      [
+        "c0c20e2c883d95de"
+      ]
+    ],
+    "type": "function",
+    "name": "only EOL-60 arrivals",
+    "func": "const event = msg.payload || {};\nif (event.payload?.stationId !== \"EOL-60\") return null;\nmsg.vin = event.vin;\nmsg.stationId = \"EOL-60\";\nmsg.inspector = \"final-audit\";\n\n// Audit demerit points: mostly clean, occasionally over the 25-point limit.\nmsg.measurements = {\n  \"AUDIT-DEMERITS\": Math.random() < 0.06\n    ? 26 + Math.floor(Math.random() * 14)\n    : Math.floor(Math.random() * 18)\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "c0c20e2c883d95de",
+    "z": "5db75f2c0aa1d2be",
+    "x": 540,
+    "y": 142,
+    "wires": [
+      [
+        "21c0122b59a91df7"
+      ],
+      [
+        "f9f8f9b21d918e05"
+      ]
+    ],
+    "type": "pc-quality-gate",
+    "name": "final audit gate",
+    "mode": "inspect",
+    "vin": "vin",
+    "vinType": "msg",
+    "station": "EOL-60",
+    "stationType": "str",
+    "holdOnFail": true,
+    "raiseAndon": true,
+    "throwErrors": false
+  },
+  {
+    "id": "21c0122b59a91df7",
+    "z": "5db75f2c0aa1d2be",
+    "x": 740,
+    "y": 80,
+    "wires": [
+      [
+        "3c9e5390cdb5e513"
+      ]
+    ],
+    "type": "pc-unit",
+    "name": "release to yard",
+    "operation": "complete",
+    "vin": "vin",
+    "vinType": "msg",
+    "station": "",
+    "stationType": "str",
+    "reason": "",
+    "operator": "final-audit",
+    "force": false,
+    "throwErrors": false
+  },
+  {
+    "id": "3c9e5390cdb5e513",
+    "z": "5db75f2c0aa1d2be",
+    "x": 940,
+    "y": 80,
+    "wires": [
+      [
+        "0a9d64ba0367990e"
+      ]
+    ],
+    "type": "function",
+    "name": "log release",
+    "func": "const unit = msg.payload;\nif (!unit) {\n  // The domain refused the release; msg.error explains why.\n  node.status({ fill: \"red\", shape: \"ring\", text: msg.error?.code || \"refused\" });\n  return null;\n}\n\nconst shipped = (flow.get(\"shipped\") || 0) + 1;\nflow.set(\"shipped\", shipped);\nnode.status({ fill: \"green\", shape: \"dot\", text: `${shipped} released this session` });\n\nmsg.payload = {\n  vin: unit.vin,\n  model: unit.modelName,\n  colour: unit.colour,\n  buildMinutes: unit.buildMinutes,\n  firstPass: unit.reworkCount === 0,\n  releasedAt: unit.releasedAt\n};\nmsg.topic = \"vehicle/released\";\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "0a9d64ba0367990e",
+    "z": "5db75f2c0aa1d2be",
+    "x": 1140,
+    "y": 80,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "vehicle released",
+    "topic": "northstar/win/plant/released",
+    "qos": "0",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "f9f8f9b21d918e05",
+    "z": "5db75f2c0aa1d2be",
+    "x": 740,
+    "y": 266,
+    "wires": [
+      [
+        "f16266275109f2a5"
+      ]
+    ],
+    "type": "function",
+    "name": "route to repair bay",
+    "func": "const gate = msg.payload;\nconst queue = flow.get(\"repairQueue\") || [];\nqueue.push({ vin: msg.vin, at: new Date().toISOString(), defects: gate.blockingDefects });\nif (queue.length > 50) queue.shift();\nflow.set(\"repairQueue\", queue);\n\nnode.status({ fill: \"yellow\", shape: \"dot\", text: `${queue.length} in repair bay` });\nmsg.payload = { vin: msg.vin, queueDepth: queue.length, defects: gate.blockingDefects };\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "f16266275109f2a5",
+    "z": "5db75f2c0aa1d2be",
+    "x": 940,
+    "y": 266,
+    "wires": [],
+    "type": "debug",
+    "name": "repair bay",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.vin",
+    "statusType": "auto"
+  },
+  {
+    "id": "71f5b27f59c43f3d",
+    "z": "5db75f2c0aa1d2be",
+    "x": 140,
+    "y": 452,
+    "wires": [],
+    "type": "comment",
+    "name": "Quality summary",
+    "info": "Quality summary\n\nPareto, first-pass yield and DPMO for the current shift, published for the\nHMI and the morning quality meeting."
+  },
+  {
+    "id": "56178d335be09bff",
+    "z": "5db75f2c0aa1d2be",
+    "x": 140,
+    "y": 514,
+    "wires": [
+      [
+        "aab49128e7718558"
+      ]
+    ],
+    "type": "inject",
+    "name": "every 30s",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "30",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "8",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "aab49128e7718558",
+    "z": "5db75f2c0aa1d2be",
+    "x": 340,
+    "y": 514,
+    "wires": [
+      [
+        "e2c9f42f26e22b85"
+      ]
+    ],
+    "type": "function",
+    "name": "build quality summary",
+    "func": "const core = global.get(\"productionCore\");\nconst summary = core.quality.summary();\n\nnode.status({\n  fill: summary.bySeverity.CRITICAL > 0 ? \"red\" : summary.bySeverity.MAJOR > 0 ? \"yellow\" : \"green\",\n  shape: \"dot\",\n  text: `FPY ${summary.firstPassYield.fpyPct ?? \"-\"}% | ${summary.defectCount} defects`\n});\n\nmsg.payload = {\n  fpyPct: summary.firstPassYield.fpyPct,\n  dpmo: summary.dpmo,\n  sigmaLevel: summary.sigmaLevel,\n  defectCount: summary.defectCount,\n  openDefects: summary.openDefects,\n  bySeverity: summary.bySeverity,\n  topDefects: summary.paretoByCode.slice(0, 5),\n  worstStations: summary.paretoByStation.slice(0, 5)\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "e2c9f42f26e22b85",
+    "z": "5db75f2c0aa1d2be",
+    "x": 540,
+    "y": 514,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "quality summary",
+    "topic": "northstar/win/plant/quality",
+    "qos": "0",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "1e1c76b79798d9b8",
+    "type": "tab",
+    "label": "80 - Andon & Downtime",
+    "disabled": false,
+    "info": "# Andon & Downtime\n\nThe andon board. What matters is not how many cords were pulled but how\nfast help arrived, so this tab runs the escalation ladder:\n\n| Tier | Role | After |\n| --- | --- | --- |\n| 1 | Team leader | immediately |\n| 2 | Area supervisor | 5 minutes |\n| 3 | Plant manager | 15 minutes |\n\nA call that blows its SLA is escalated automatically by the sweep below.",
+    "env": []
+  },
+  {
+    "id": "fffd5721501b6b13",
+    "z": "1e1c76b79798d9b8",
+    "x": 140,
+    "y": 80,
+    "wires": [],
+    "type": "comment",
+    "name": "Escalation sweep",
+    "info": "Escalation sweep\n\nRuns every 30 seconds. Any open call past its SLA moves up the ladder."
+  },
+  {
+    "id": "da1dd45d202f137a",
+    "z": "1e1c76b79798d9b8",
+    "x": 140,
+    "y": 142,
+    "wires": [
+      [
+        "e957e21f06a7bc30"
+      ]
+    ],
+    "type": "inject",
+    "name": "every 30s",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "30",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "10",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "e957e21f06a7bc30",
+    "z": "1e1c76b79798d9b8",
+    "x": 340,
+    "y": 142,
+    "wires": [
+      [
+        "e2d15cc5268b952e"
+      ]
+    ],
+    "type": "pc-andon",
+    "name": "escalate overdue",
+    "operation": "sweep",
+    "station": "",
+    "stationType": "str",
+    "callType": "MAINTENANCE",
+    "andonId": "",
+    "andonIdType": "str",
+    "throwErrors": false
+  },
+  {
+    "id": "e2d15cc5268b952e",
+    "z": "1e1c76b79798d9b8",
+    "x": 540,
+    "y": 142,
+    "wires": [
+      [
+        "e84046b1b6e8f69a"
+      ]
+    ],
+    "type": "function",
+    "name": "report escalations",
+    "func": "const escalated = msg.payload || [];\nif (!escalated.length) {\n  node.status({ fill: \"green\", shape: \"dot\", text: \"no overdue calls\" });\n  return null;\n}\n\nnode.status({ fill: \"red\", shape: \"dot\", text: `${escalated.length} escalated` });\nnode.warn(`Escalated ${escalated.length} andon call(s): ` +\n  escalated.map((a) => `${a.id} ${a.stationId} -> ${a.escalatedTo}`).join(\", \"));\n\nmsg.payload = escalated.map((a) => ({\n  id: a.id, stationId: a.stationId, lineId: a.lineId,\n  callType: a.callType, tier: a.escalationTier, escalatedTo: a.escalatedTo\n}));\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "e84046b1b6e8f69a",
+    "z": "1e1c76b79798d9b8",
+    "x": 740,
+    "y": 142,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "escalations",
+    "topic": "northstar/win/plant/andon/escalated",
+    "qos": "0",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "2bacd4f9a2c65edd",
+    "z": "1e1c76b79798d9b8",
+    "x": 140,
+    "y": 328,
+    "wires": [],
+    "type": "comment",
+    "name": "Live andon board",
+    "info": "Live andon board\n\nEvery call, as it happens. Red calls stop the line."
+  },
+  {
+    "id": "8424c6ffefcdf056",
+    "z": "1e1c76b79798d9b8",
+    "x": 140,
+    "y": 390,
+    "wires": [
+      [
+        "29a311d6ce75c0d3"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "andon events",
+    "topic": "northstar/win/plant/event/andon/#",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "29a311d6ce75c0d3",
+    "z": "1e1c76b79798d9b8",
+    "x": 340,
+    "y": 390,
+    "wires": [
+      [
+        "59d99b314b44cf9d"
+      ]
+    ],
+    "type": "function",
+    "name": "update andon board",
+    "func": "const event = msg.payload || {};\nconst p = event.payload || {};\nconst board = flow.get(\"board\") || {};\n\nif (event.type === \"andon.raised\") {\n  board[p.id] = {\n    id: p.id, stationId: p.stationId, lineId: p.lineId,\n    callType: p.callType, colour: p.colour, stopsLine: p.stopsLine,\n    raisedAt: event.timestamp, status: \"RAISED\"\n  };\n} else if (event.type === \"andon.acknowledged\" && board[p.id]) {\n  board[p.id].status = \"ACKNOWLEDGED\";\n  board[p.id].responseSeconds = p.responseSeconds;\n  board[p.id].slaMet = p.slaMet;\n} else if (event.type === \"andon.escalated\" && board[p.id]) {\n  board[p.id].status = \"ESCALATED\";\n  board[p.id].escalatedTo = p.escalatedTo;\n} else if (event.type === \"andon.resolved\") {\n  delete board[p.id];\n}\n\nflow.set(\"board\", board);\nconst open = Object.values(board);\nconst stopping = open.filter((a) => a.stopsLine).length;\n\nnode.status({\n  fill: stopping ? \"red\" : open.length ? \"yellow\" : \"green\",\n  shape: \"dot\",\n  text: open.length ? `${open.length} open, ${stopping} stopping the line` : \"board clear\"\n});\n\nmsg.payload = { open, count: open.length, lineStopping: stopping };\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "59d99b314b44cf9d",
+    "z": "1e1c76b79798d9b8",
+    "x": 540,
+    "y": 390,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "andon board",
+    "topic": "northstar/win/plant/andon/board",
+    "qos": "0",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "d8d85784c0238238",
+    "z": "1e1c76b79798d9b8",
+    "x": 140,
+    "y": 576,
+    "wires": [],
+    "type": "comment",
+    "name": "Downtime tracking",
+    "info": "Downtime tracking\n\nEvery stop, with its ISO 22400 reason code and Six Big Losses category.\nStops shorter than the micro-stop threshold never reach here."
+  },
+  {
+    "id": "6237e22409d33789",
+    "z": "1e1c76b79798d9b8",
+    "x": 140,
+    "y": 638,
+    "wires": [
+      [
+        "cbba367539039032"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "downtime events",
+    "topic": "northstar/win/plant/event/downtime/#",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "cbba367539039032",
+    "z": "1e1c76b79798d9b8",
+    "x": 340,
+    "y": 638,
+    "wires": [
+      [
+        "9c80b71771c2bcfd"
+      ]
+    ],
+    "type": "function",
+    "name": "track downtime",
+    "func": "const event = msg.payload || {};\nconst p = event.payload || {};\n\nif (event.type === \"downtime.started\") {\n  node.status({ fill: \"red\", shape: \"dot\", text: `${p.stationId}: ${p.reasonCode}` });\n  msg.payload = { action: \"started\", ...p };\n  return msg;\n}\n\nif (event.type === \"downtime.ended\") {\n  const totals = flow.get(\"totals\") || {};\n  totals[p.reasonCode] = (totals[p.reasonCode] || 0) + (p.durationSeconds || 0);\n  flow.set(\"totals\", totals);\n\n  const worst = Object.entries(totals).sort((a, b) => b[1] - a[1])[0];\n  node.status({\n    fill: \"green\", shape: \"dot\",\n    text: worst ? `top loss: ${worst[0]} ${Math.round(worst[1] / 60)}min` : \"no losses\"\n  });\n\n  msg.payload = { action: \"ended\", ...p, totalsByReason: totals };\n  return msg;\n}\nreturn null;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "9c80b71771c2bcfd",
+    "z": "1e1c76b79798d9b8",
+    "x": 540,
+    "y": 638,
+    "wires": [],
+    "type": "debug",
+    "name": "downtime",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.reasonCode",
+    "statusType": "auto"
+  },
+  {
+    "id": "be49734afb07e018",
+    "type": "tab",
+    "label": "85 - Maintenance",
+    "disabled": false,
+    "info": "# Maintenance & Station Control\n\nThree things live here.\n\n**Preventive-maintenance scheduling.** Every station carries a count of\ncycles since its last service against an interval derived from its MTBF.\nThis flow watches those counters and publishes which stations are coming\ndue. Overdue stations fail more often - skipping PM is not free.\n\n**Station control over MQTT.** A SCADA system or PLC can start, stop and\nhand stations to maintenance by publishing to\n`northstar/win/<line>/<station>/cmd`:\n\n```json\n{ \"command\": \"stop\", \"apiKey\": \"...\", \"operator\": \"scada\",\n  \"reasonCode\": \"SCHEDULED_BREAK\", \"reason\": \"Lunch\" }\n```\n\nCommands: `start`, `stop`, `maintenance`, `completeMaintenance`. Every\ncommand is answered on `.../cmd/ack`, including the ones the domain\nrefused - a controller that never hears back cannot tell a rejected\ncommand from a lost one.\n\nCommands go through exactly the same lockout as the REST API: a station\nunder maintenance cannot be started over MQTT any more than it can by\nclicking a button.",
+    "env": []
+  },
+  {
+    "id": "be194bc3f40013e7",
+    "z": "be49734afb07e018",
+    "x": 140,
+    "y": 80,
+    "wires": [],
+    "type": "comment",
+    "name": "Preventive-maintenance watch",
+    "info": "Preventive-maintenance watch\n\nCycles since last service against the MTBF-derived interval. Alerts once\nper station per status change, so a station sitting at DUE does not page\nsomeone every minute."
+  },
+  {
+    "id": "32da4009d998117d",
+    "z": "be49734afb07e018",
+    "x": 140,
+    "y": 142,
+    "wires": [
+      [
+        "4ce43f876b332814"
+      ]
+    ],
+    "type": "inject",
+    "name": "every 60s",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "60",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "12",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "4ce43f876b332814",
+    "z": "be49734afb07e018",
+    "x": 340,
+    "y": 142,
+    "wires": [
+      [
+        "8b8033becfdbe84d"
+      ]
+    ],
+    "type": "pc-station",
+    "name": "PM status",
+    "operation": "pmStatus",
+    "station": "",
+    "stationType": "str",
+    "state": "RUNNING",
+    "reasonCode": "",
+    "lineFilter": "",
+    "maintenanceType": "",
+    "throwErrors": false
+  },
+  {
+    "id": "8b8033becfdbe84d",
+    "z": "be49734afb07e018",
+    "x": 540,
+    "y": 142,
+    "wires": [
+      [
+        "44f478b144a451d4"
+      ],
+      [
+        "4a470ab17c0a2432"
+      ]
+    ],
+    "type": "function",
+    "name": "evaluate PM due",
+    "func": "const all = msg.payload || [];\nconst attention = all.filter((s) => s.status !== \"OK\");\n\n// Remember the last status alerted per station and only alert on change.\nconst seen = flow.get(\"pmAlerted\") || {};\nconst changed = attention.filter((s) => seen[s.stationId] !== s.status);\nall.forEach((s) => { if (s.status === \"OK\") delete seen[s.stationId]; });\nchanged.forEach((s) => { seen[s.stationId] = s.status; });\nflow.set(\"pmAlerted\", seen);\n\nconst overdue = attention.filter((s) => s.status === \"OVERDUE\").length;\nnode.status({\n  fill: overdue ? \"red\" : attention.length ? \"yellow\" : \"green\",\n  shape: \"dot\",\n  text: attention.length ? `${attention.length} need PM, ${overdue} overdue` : \"all stations in interval\"\n});\n\nconst board = {\n  generatedAt: new Date().toISOString(),\n  attention: attention.map((s) => ({\n    stationId: s.stationId, lineId: s.lineId, status: s.status,\n    usedPct: s.usedPct, remainingCycles: s.remainingCycles, controlMode: s.controlMode\n  }))\n};\n\nconst alerts = changed.length\n  ? { payload: changed.map((s) => `${s.stationId} ${s.status} (${s.usedPct}% of interval)`) }\n  : null;\nreturn [{ payload: board }, alerts];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "44f478b144a451d4",
+    "z": "be49734afb07e018",
+    "x": 740,
+    "y": 80,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "PM board",
+    "topic": "northstar/win/plant/maintenance/due",
+    "qos": "0",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "4a470ab17c0a2432",
+    "z": "be49734afb07e018",
+    "x": 740,
+    "y": 204,
+    "wires": [],
+    "type": "debug",
+    "name": "PM alerts",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload",
+    "statusType": "auto"
+  },
+  {
+    "id": "7aad2a638e32238d",
+    "z": "be49734afb07e018",
+    "x": 140,
+    "y": 328,
+    "wires": [],
+    "type": "comment",
+    "name": "Station control over MQTT",
+    "info": "Station control over MQTT\n\nPublish to northstar/win/<line>/<station>/cmd. The payload must carry\nthe API key: the WebSocket listener is reachable from the internet on a\nhosted demo, and an unauthenticated stop command is a denial of service."
+  },
+  {
+    "id": "3065d9470fd5b6f0",
+    "z": "be49734afb07e018",
+    "x": 140,
+    "y": 390,
+    "wires": [
+      [
+        "6c676ab1348bfb56"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "station commands",
+    "topic": "northstar/win/+/+/cmd",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "6c676ab1348bfb56",
+    "z": "be49734afb07e018",
+    "x": 340,
+    "y": 390,
+    "wires": [
+      [
+        "f4a38d0b62e61486"
+      ],
+      [
+        "065f0f67e0df92bc"
+      ]
+    ],
+    "type": "function",
+    "name": "validate command",
+    "func": "// Topic: <root>/<site>/<line>/<station>/cmd\nconst parts = (msg.topic || \"\").split(\"/\");\nconst stationId = (parts[3] || \"\").toUpperCase();\nconst body = typeof msg.payload === \"object\" && msg.payload ? msg.payload : {};\nconst command = String(body.command || \"\");\nconst allowed = [\"start\", \"stop\", \"maintenance\", \"completeMaintenance\"];\n\nmsg.ackTopic = `${msg.topic}/ack`;\nmsg.stationId = stationId;\nmsg.command = command;\n\nconst reject = (code, message) => {\n  msg.payload = { ok: false, stationId, command, error: { code, message }, at: new Date().toISOString() };\n  node.warn(`rejected ${command || \"?\"} for ${stationId || \"?\"}: ${message}`);\n  return [null, msg];\n};\n\nif (body.apiKey !== env.get(\"PC_API_KEY\")) return reject(\"UNAUTHORIZED\", \"apiKey is missing or wrong\");\nif (!allowed.includes(command)) return reject(\"VALIDATION_FAILED\", `command must be one of ${allowed.join(\", \")}`);\nif (!global.get(\"plantModel\").getStation(stationId)) return reject(\"NOT_FOUND\", `unknown station ${stationId}`);\n\n// Carry the command fields where pc-station expects them.\nmsg.operator = body.operator || \"mqtt\";\nmsg.technician = body.technician || body.operator || \"mqtt\";\nmsg.reasonCode = body.reasonCode;\nmsg.reason = body.reason;\nmsg.note = body.note;\nmsg.maintenanceType = body.type;\nmsg.plannedMinutes = body.plannedMinutes;\nmsg.findings = body.findings;\nmsg.checklist = body.checklist;\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "f4a38d0b62e61486",
+    "z": "be49734afb07e018",
+    "x": 540,
+    "y": 390,
+    "wires": [
+      [
+        "f30221a360c616d0"
+      ],
+      [
+        "2031a1cc2f048a61"
+      ],
+      [
+        "6973375ddea46930"
+      ],
+      [
+        "d555c155c6259cc3"
+      ]
+    ],
+    "type": "switch",
+    "name": "by command",
+    "property": "command",
+    "propertyType": "msg",
+    "rules": [
+      {
+        "t": "eq",
+        "v": "start",
+        "vt": "str"
+      },
+      {
+        "t": "eq",
+        "v": "stop",
+        "vt": "str"
+      },
+      {
+        "t": "eq",
+        "v": "maintenance",
+        "vt": "str"
+      },
+      {
+        "t": "eq",
+        "v": "completeMaintenance",
+        "vt": "str"
+      }
+    ],
+    "checkall": "false",
+    "repair": false,
+    "outputs": 4
+  },
+  {
+    "id": "f30221a360c616d0",
+    "z": "be49734afb07e018",
+    "x": 740,
+    "y": 328,
+    "wires": [
+      [
+        "065f0f67e0df92bc"
+      ]
+    ],
+    "type": "pc-station",
+    "name": "start",
+    "operation": "start",
+    "station": "stationId",
+    "stationType": "msg",
+    "state": "RUNNING",
+    "reasonCode": "",
+    "lineFilter": "",
+    "maintenanceType": "",
+    "throwErrors": false
+  },
+  {
+    "id": "2031a1cc2f048a61",
+    "z": "be49734afb07e018",
+    "x": 740,
+    "y": 390,
+    "wires": [
+      [
+        "065f0f67e0df92bc"
+      ]
+    ],
+    "type": "pc-station",
+    "name": "stop",
+    "operation": "stop",
+    "station": "stationId",
+    "stationType": "msg",
+    "state": "RUNNING",
+    "reasonCode": "",
+    "lineFilter": "",
+    "maintenanceType": "",
+    "throwErrors": false
+  },
+  {
+    "id": "6973375ddea46930",
+    "z": "be49734afb07e018",
+    "x": 740,
+    "y": 452,
+    "wires": [
+      [
+        "065f0f67e0df92bc"
+      ]
+    ],
+    "type": "pc-station",
+    "name": "start maintenance",
+    "operation": "maintenance",
+    "station": "stationId",
+    "stationType": "msg",
+    "state": "RUNNING",
+    "reasonCode": "",
+    "lineFilter": "",
+    "maintenanceType": "",
+    "throwErrors": false
+  },
+  {
+    "id": "d555c155c6259cc3",
+    "z": "be49734afb07e018",
+    "x": 740,
+    "y": 514,
+    "wires": [
+      [
+        "065f0f67e0df92bc"
+      ]
+    ],
+    "type": "pc-station",
+    "name": "complete maintenance",
+    "operation": "completeMaintenance",
+    "station": "stationId",
+    "stationType": "msg",
+    "state": "RUNNING",
+    "reasonCode": "",
+    "lineFilter": "",
+    "maintenanceType": "",
+    "throwErrors": false
+  },
+  {
+    "id": "065f0f67e0df92bc",
+    "z": "be49734afb07e018",
+    "x": 940,
+    "y": 390,
+    "wires": [
+      [
+        "e342c30cc9f48ee5"
+      ]
+    ],
+    "type": "function",
+    "name": "build acknowledgement",
+    "func": "// pc-station reports a domain refusal on msg.error rather than throwing,\n// so a refused command still produces an answer for the controller.\nif (msg.error) {\n  msg.payload = {\n    ok: false, stationId: msg.stationId, command: msg.command,\n    error: { code: msg.error.code, message: msg.error.message },\n    at: new Date().toISOString()\n  };\n  node.status({ fill: \"red\", shape: \"ring\", text: `${msg.command} ${msg.stationId}: ${msg.error.code}` });\n} else if (msg.payload && msg.payload.ok === undefined) {\n  const view = msg.payload;\n  msg.payload = {\n    ok: true, stationId: msg.stationId, command: msg.command,\n    state: view.state, mode: view.control && view.control.mode,\n    allowedActions: view.allowedActions,\n    maintenanceOrderId: (view.activeMaintenance || view.completedOrder || {}).id || null,\n    at: new Date().toISOString()\n  };\n  node.status({ fill: \"green\", shape: \"dot\", text: `${msg.command} ${msg.stationId}: ${view.state}` });\n}\nmsg.topic = msg.ackTopic;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "e342c30cc9f48ee5",
+    "z": "be49734afb07e018",
+    "x": 1140,
+    "y": 390,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "command ack",
+    "topic": "",
+    "qos": "0",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "860a231abda52315",
+    "z": "be49734afb07e018",
+    "x": 140,
+    "y": 638,
+    "wires": [],
+    "type": "comment",
+    "name": "Maintenance log",
+    "info": "Maintenance log\n\nEvery order started and completed, with planned vs actual time.\nOverruns are what a maintenance planner reviews each week."
+  },
+  {
+    "id": "39be0dc42bfba382",
+    "z": "be49734afb07e018",
+    "x": 140,
+    "y": 700,
+    "wires": [
+      [
+        "8e06ce33f805b851"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "maintenance events",
+    "topic": "northstar/win/plant/event/maintenance/#",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "8e06ce33f805b851",
+    "z": "be49734afb07e018",
+    "x": 340,
+    "y": 700,
+    "wires": [
+      [
+        "31078baa3e95f39b"
+      ]
+    ],
+    "type": "function",
+    "name": "track overruns",
+    "func": "const event = msg.payload || {};\nconst p = event.payload || {};\n\nif (event.type === \"maintenance.started\") {\n  node.status({ fill: \"yellow\", shape: \"dot\", text: `${p.id} ${p.stationId} ${p.type}` });\n  msg.payload = { action: \"started\", id: p.id, stationId: p.stationId, type: p.type, plannedMinutes: p.plannedMinutes };\n  return msg;\n}\n\nif (event.type === \"maintenance.completed\") {\n  const stats = flow.get(\"mstats\") || { orders: 0, overruns: 0, minutes: 0 };\n  stats.orders += 1;\n  stats.minutes += p.actualMinutes || 0;\n  if ((p.overrunMinutes || 0) > 0) stats.overruns += 1;\n  flow.set(\"mstats\", stats);\n  node.status({\n    fill: \"green\", shape: \"dot\",\n    text: `${stats.orders} done, ${stats.overruns} overran, ${Math.round(stats.minutes)} min`\n  });\n  msg.payload = { action: \"completed\", ...p, totals: stats };\n  return msg;\n}\nreturn null;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "31078baa3e95f39b",
+    "z": "be49734afb07e018",
+    "x": 540,
+    "y": 700,
+    "wires": [],
+    "type": "debug",
+    "name": "maintenance log",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.action",
+    "statusType": "auto"
+  },
+  {
+    "id": "3cf458245ff85250",
+    "type": "tab",
+    "label": "90 - OEE & KPI Engine",
+    "disabled": false,
+    "info": "# OEE & KPI Engine\n\nISO 22400-2 calculation for every line, published on MQTT.\n\n```\nAvailability = Actual production time / Planned busy time\nPerformance  = Ideal cycle time x Total count / Actual production time\nQuality      = First-pass good count / Total count\nOEE          = Availability x Performance x Quality\n```\n\nA line is not the average of its stations: availability and performance\ncome from the constraint station, while quality compounds along the route.",
+    "env": []
+  },
+  {
+    "id": "78fc38aa56213063",
+    "z": "3cf458245ff85250",
+    "x": 140,
+    "y": 80,
+    "wires": [],
+    "type": "comment",
+    "name": "Per-line KPI publication",
+    "info": "Per-line KPI publication\n\nOne calculation pass every 20 seconds, fanned out to per-line topics."
+  },
+  {
+    "id": "88e573d3b5097695",
+    "z": "3cf458245ff85250",
+    "x": 140,
+    "y": 142,
+    "wires": [
+      [
+        "1d2d2384d791c3b9"
+      ]
+    ],
+    "type": "inject",
+    "name": "every 20s",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "20",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "7",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "1d2d2384d791c3b9",
+    "z": "3cf458245ff85250",
+    "x": 340,
+    "y": 142,
+    "wires": [
+      [
+        "9268fa0f901f2b57"
+      ]
+    ],
+    "type": "pc-oee",
+    "name": "plant OEE",
+    "scope": "plant",
+    "target": "",
+    "targetType": "str",
+    "shifts": 8,
+    "throwErrors": false
+  },
+  {
+    "id": "9268fa0f901f2b57",
+    "z": "3cf458245ff85250",
+    "x": 540,
+    "y": 142,
+    "wires": [
+      [
+        "206f8172ac131ca1"
+      ]
+    ],
+    "type": "function",
+    "name": "split per line",
+    "func": "const plant = msg.payload;\n\n// One message per line, plus one for the plant roll-up. Publishing to\n// per-line topics lets a subscriber take just the line it cares about\n// instead of filtering a combined payload.\nconst messages = plant.lines.map((line) => ({\n  topic: `northstar/win/${line.lineId.toLowerCase()}/kpi`,\n  payload: {\n    lineId: line.lineId,\n    name: line.lineName,\n    kind: line.kind,\n    oee: line.oee,\n    availability: line.availability,\n    performance: line.performance,\n    quality: line.quality,\n    rating: line.rating,\n    jph: line.jph,\n    targetJph: line.targetJph,\n    constraintStation: line.constraintStation,\n    wip: line.wip,\n    window: plant.window\n  }\n}));\n\nmessages.push({\n  topic: \"northstar/win/plant/kpi\",\n  payload: {\n    oee: plant.oee,\n    rating: plant.rating,\n    constraintLine: plant.constraintLine,\n    jph: plant.throughput.jph,\n    targetJph: plant.throughput.targetJph,\n    taktAdherencePct: plant.throughput.taktAdherencePct,\n    fpy: plant.firstPassYield,\n    rolledThroughputYield: plant.rolledThroughputYield,\n    wip: plant.wip,\n    window: plant.window\n  }\n});\n\nnode.status({\n  fill: plant.oee >= 85 ? \"green\" : plant.oee >= 60 ? \"yellow\" : \"red\",\n  shape: \"dot\",\n  text: `plant OEE ${plant.oee}% | constraint ${plant.constraintLine}`\n});\n\nreturn [messages];",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "206f8172ac131ca1",
+    "z": "3cf458245ff85250",
+    "x": 740,
+    "y": 142,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "publish KPI",
+    "topic": "",
+    "qos": "0",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "bbe1fbda6a35cf7b",
+    "z": "3cf458245ff85250",
+    "x": 140,
+    "y": 328,
+    "wires": [],
+    "type": "comment",
+    "name": "Constraint alert",
+    "info": "Constraint alert\n\nA line is only as fast as its bottleneck, so the useful alert is not\n\"OEE is low\" but \"the constraint has moved\". That is the station to go\nand look at."
+  },
+  {
+    "id": "c62a7e367d5f4524",
+    "z": "3cf458245ff85250",
+    "x": 140,
+    "y": 390,
+    "wires": [
+      [
+        "f684e151eb595378"
+      ]
+    ],
+    "type": "inject",
+    "name": "every 60s",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "60",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "20",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "f684e151eb595378",
+    "z": "3cf458245ff85250",
+    "x": 340,
+    "y": 390,
+    "wires": [
+      [
+        "fadbbc73073b869b"
+      ]
+    ],
+    "type": "pc-oee",
+    "name": "plant OEE",
+    "scope": "plant",
+    "target": "",
+    "targetType": "str",
+    "shifts": 8,
+    "throwErrors": false
+  },
+  {
+    "id": "fadbbc73073b869b",
+    "z": "3cf458245ff85250",
+    "x": 540,
+    "y": 390,
+    "wires": [
+      [
+        "a84e172b3a31cff1",
+        "4f24b07119090fce"
+      ]
+    ],
+    "type": "function",
+    "name": "detect constraint shift",
+    "func": "const plant = msg.payload;\nconst previous = flow.get(\"constraint\");\nconst current = plant.constraintLine;\n\nflow.set(\"constraint\", current);\nnode.status({ fill: \"blue\", shape: \"dot\", text: `constraint: ${current}` });\n\nif (!previous || previous === current) return null;\n\nnode.warn(`Plant constraint moved from ${previous} to ${current}`);\nmsg.payload = {\n  previousConstraint: previous,\n  currentConstraint: current,\n  oee: plant.oee,\n  lines: plant.lines.map((l) => ({ id: l.lineId, oee: l.oee, jph: l.jph }))\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "a84e172b3a31cff1",
+    "z": "3cf458245ff85250",
+    "x": 740,
+    "y": 390,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "constraint shift",
+    "topic": "northstar/win/plant/constraint",
+    "qos": "0",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "4f24b07119090fce",
+    "z": "3cf458245ff85250",
+    "x": 740,
+    "y": 514,
+    "wires": [],
+    "type": "debug",
+    "name": "constraint shifts",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.currentConstraint",
+    "statusType": "auto"
+  },
+  {
+    "id": "7531b733a65005fe",
+    "z": "3cf458245ff85250",
+    "x": 140,
+    "y": 638,
+    "wires": [
+      [
+        "6df90d6a267239e1"
+      ]
+    ],
+    "type": "inject",
+    "name": "every 5 min",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "300",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "30",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "6df90d6a267239e1",
+    "z": "3cf458245ff85250",
+    "x": 340,
+    "y": 638,
+    "wires": [
+      [
+        "413dd429e8fb079b"
+      ]
+    ],
+    "type": "pc-oee",
+    "name": "shift trend",
+    "scope": "trend",
+    "target": "",
+    "targetType": "str",
+    "shifts": 8,
+    "throwErrors": false
+  },
+  {
+    "id": "413dd429e8fb079b",
+    "z": "3cf458245ff85250",
+    "x": 540,
+    "y": 638,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "shift trend",
+    "topic": "northstar/win/plant/trend",
+    "qos": "0",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "5c65440a727c2f1c",
+    "type": "tab",
+    "label": "95 - Factory API",
+    "disabled": false,
+    "info": "# Factory API\n\nHTTP endpoints served **by the flows themselves**, under `/factory`.\n\nThese sit alongside the Express REST API at `/api/v1` and exist to show\nthe Node-RED http-in pattern. Both call the same domain services, so\nthey cannot disagree about what the plant is doing.\n\n| Endpoint | Purpose |\n| --- | --- |\n| `GET /factory/status` | Plant status as JSON |\n| `GET /factory/board` | Line board, human-readable HTML |\n| `GET /factory/line/:id` | One line's KPIs |\n| `GET /factory/vehicle/:vin` | Full vehicle trace |\n| `POST /factory/andon` | Raise an andon call |\n| `POST /factory/recall` | Run a recall query |",
+    "env": []
+  },
+  {
+    "id": "b31ed16825edffff",
+    "z": "5c65440a727c2f1c",
+    "x": 140,
+    "y": 80,
+    "wires": [],
+    "type": "comment",
+    "name": "Flow-served HTTP endpoints",
+    "info": "Flow-served HTTP endpoints\n\nhttp in -> domain node -> http response. The classic Node-RED API pattern."
+  },
+  {
+    "id": "eda2f0542847c65c",
+    "z": "5c65440a727c2f1c",
+    "x": 140,
+    "y": 142,
+    "wires": [
+      [
+        "2217e78f811204dd"
+      ]
+    ],
+    "type": "http in",
+    "name": "GET /factory/status",
+    "url": "/status",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": ""
+  },
+  {
+    "id": "2217e78f811204dd",
+    "z": "5c65440a727c2f1c",
+    "x": 340,
+    "y": 142,
+    "wires": [
+      [
+        "80676bea150680f0"
+      ]
+    ],
+    "type": "pc-oee",
+    "name": "dashboard",
+    "scope": "dashboard",
+    "target": "",
+    "targetType": "str",
+    "shifts": 8,
+    "throwErrors": false
+  },
+  {
+    "id": "80676bea150680f0",
+    "z": "5c65440a727c2f1c",
+    "x": 540,
+    "y": 142,
+    "wires": [
+      [
+        "4d29f6fc9f1f95b7"
+      ]
+    ],
+    "type": "function",
+    "name": "shape response",
+    "func": "const d = msg.payload;\nmsg.payload = {\n  site: \"NorthStar Motors - Windsor Assembly Plant\",\n  generatedAt: d.generatedAt,\n  shift: d.window,\n  headline: d.headline,\n  quality: { fpyPct: d.quality.fpyPct, dpmo: d.quality.dpmo, sigmaLevel: d.quality.sigmaLevel },\n  stations: d.stations,\n  andon: { open: d.andon.open, escalated: d.andon.escalated },\n  lines: d.lines,\n  servedBy: \"node-red flow: 95 - Factory API\"\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "4d29f6fc9f1f95b7",
+    "z": "5c65440a727c2f1c",
+    "x": 740,
+    "y": 142,
+    "wires": [],
+    "type": "http response",
+    "name": "respond",
+    "statusCode": "",
+    "headers": {
+      "content-type": "application/json"
+    }
+  },
+  {
+    "id": "beb1e2571ca9f372",
+    "z": "5c65440a727c2f1c",
+    "x": 140,
+    "y": 266,
+    "wires": [
+      [
+        "0a6425cde1eb132c"
+      ]
+    ],
+    "type": "http in",
+    "name": "GET /factory/line/:id",
+    "url": "/line/:id",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": ""
+  },
+  {
+    "id": "0a6425cde1eb132c",
+    "z": "5c65440a727c2f1c",
+    "x": 340,
+    "y": 266,
+    "wires": [
+      [
+        "4dc17289f995f6d0"
+      ]
+    ],
+    "type": "function",
+    "name": "read line id",
+    "func": "msg.lineId = (msg.req.params.id || \"\").toUpperCase();\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "4dc17289f995f6d0",
+    "z": "5c65440a727c2f1c",
+    "x": 540,
+    "y": 266,
+    "wires": [
+      [
+        "68a0a2d597411ebf"
+      ]
+    ],
+    "type": "pc-oee",
+    "name": "line OEE",
+    "scope": "line",
+    "target": "lineId",
+    "targetType": "msg",
+    "shifts": 8,
+    "throwErrors": false
+  },
+  {
+    "id": "68a0a2d597411ebf",
+    "z": "5c65440a727c2f1c",
+    "x": 740,
+    "y": 266,
+    "wires": [
+      [
+        "5ef7d1de8a1460be"
+      ]
+    ],
+    "type": "function",
+    "name": "handle not found",
+    "func": "if (msg.error) {\n  msg.statusCode = msg.error.status || 404;\n  msg.payload = { error: msg.error };\n}\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "5ef7d1de8a1460be",
+    "z": "5c65440a727c2f1c",
+    "x": 940,
+    "y": 266,
+    "wires": [],
+    "type": "http response",
+    "name": "respond",
+    "statusCode": "",
+    "headers": {
+      "content-type": "application/json"
+    }
+  },
+  {
+    "id": "59ad14f39d3ac599",
+    "z": "5c65440a727c2f1c",
+    "x": 140,
+    "y": 390,
+    "wires": [
+      [
+        "0aa83cb46b41a2a4"
+      ]
+    ],
+    "type": "http in",
+    "name": "GET /factory/vehicle/:vin",
+    "url": "/vehicle/:vin",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": ""
+  },
+  {
+    "id": "0aa83cb46b41a2a4",
+    "z": "5c65440a727c2f1c",
+    "x": 340,
+    "y": 390,
+    "wires": [
+      [
+        "74a71e56db15f682"
+      ]
+    ],
+    "type": "function",
+    "name": "read vin",
+    "func": "msg.vin = (msg.req.params.vin || \"\").toUpperCase();\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "74a71e56db15f682",
+    "z": "5c65440a727c2f1c",
+    "x": 540,
+    "y": 390,
+    "wires": [
+      [
+        "ef6cd8173714c653"
+      ]
+    ],
+    "type": "pc-genealogy",
+    "name": "vehicle trace",
+    "operation": "trace",
+    "vin": "vin",
+    "vinType": "msg",
+    "lotCode": "",
+    "lotCodeType": "str",
+    "throwErrors": false
+  },
+  {
+    "id": "ef6cd8173714c653",
+    "z": "5c65440a727c2f1c",
+    "x": 740,
+    "y": 390,
+    "wires": [
+      [
+        "d29cfcac38002dc6"
+      ]
+    ],
+    "type": "function",
+    "name": "handle not found",
+    "func": "if (msg.error) {\n  msg.statusCode = msg.error.status || 404;\n  msg.payload = { error: msg.error };\n}\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "d29cfcac38002dc6",
+    "z": "5c65440a727c2f1c",
+    "x": 940,
+    "y": 390,
+    "wires": [],
+    "type": "http response",
+    "name": "respond",
+    "statusCode": "",
+    "headers": {
+      "content-type": "application/json"
+    }
+  },
+  {
+    "id": "b575360663ba20aa",
+    "z": "5c65440a727c2f1c",
+    "x": 140,
+    "y": 514,
+    "wires": [
+      [
+        "b18377d02b5ab66b"
+      ]
+    ],
+    "type": "http in",
+    "name": "POST /factory/andon",
+    "url": "/andon",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": ""
+  },
+  {
+    "id": "b18377d02b5ab66b",
+    "z": "5c65440a727c2f1c",
+    "x": 340,
+    "y": 514,
+    "wires": [
+      [
+        "1e1ee61ee36db83a"
+      ],
+      [
+        "d86023fc28c3de25"
+      ]
+    ],
+    "type": "function",
+    "name": "read call details",
+    "func": "const body = msg.payload || {};\nif (!body.stationId || !body.callType) {\n  msg.statusCode = 400;\n  msg.payload = { error: { code: \"VALIDATION_FAILED\", message: \"stationId and callType are required\" } };\n  return [null, msg];\n}\nmsg.stationId = body.stationId;\nmsg.callType = body.callType;\nmsg.raisedBy = body.raisedBy || \"factory-api\";\nmsg.note = body.note;\nmsg.vin = body.vin;\nreturn [msg, null];",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "1e1ee61ee36db83a",
+    "z": "5c65440a727c2f1c",
+    "x": 540,
+    "y": 514,
+    "wires": [
+      [
+        "e046160acb9b90d3"
+      ]
+    ],
+    "type": "pc-andon",
+    "name": "raise call",
+    "operation": "raise",
+    "station": "stationId",
+    "stationType": "msg",
+    "callType": "MAINTENANCE",
+    "andonId": "payload.id",
+    "andonIdType": "msg",
+    "throwErrors": false
+  },
+  {
+    "id": "e046160acb9b90d3",
+    "z": "5c65440a727c2f1c",
+    "x": 740,
+    "y": 514,
+    "wires": [
+      [
+        "d86023fc28c3de25"
+      ]
+    ],
+    "type": "function",
+    "name": "shape response",
+    "func": "if (msg.error) {\n  msg.statusCode = msg.error.status || 400;\n  msg.payload = { error: msg.error };\n  return msg;\n}\nmsg.statusCode = 201;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "d86023fc28c3de25",
+    "z": "5c65440a727c2f1c",
+    "x": 940,
+    "y": 514,
+    "wires": [],
+    "type": "http response",
+    "name": "respond",
+    "statusCode": "",
+    "headers": {
+      "content-type": "application/json"
+    }
+  },
+  {
+    "id": "cab3a35ef991e83c",
+    "z": "5c65440a727c2f1c",
+    "x": 140,
+    "y": 638,
+    "wires": [
+      [
+        "6b0900bde3a00871"
+      ]
+    ],
+    "type": "http in",
+    "name": "POST /factory/recall",
+    "url": "/recall",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": ""
+  },
+  {
+    "id": "6b0900bde3a00871",
+    "z": "5c65440a727c2f1c",
+    "x": 340,
+    "y": 638,
+    "wires": [
+      [
+        "f2b06187e091c509"
+      ]
+    ],
+    "type": "function",
+    "name": "read query",
+    "func": "const body = msg.payload || {};\nmsg.lotCode = body.lotCode;\nmsg.serial = body.serial;\nmsg.partNumber = body.partNumber;\nmsg.reason = body.reason || \"Recall query via factory API\";\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "f2b06187e091c509",
+    "z": "5c65440a727c2f1c",
+    "x": 540,
+    "y": 638,
+    "wires": [
+      [
+        "19d18f86bbb71c2c"
+      ]
+    ],
+    "type": "pc-genealogy",
+    "name": "recall analysis",
+    "operation": "recall",
+    "vin": "",
+    "vinType": "str",
+    "lotCode": "lotCode",
+    "lotCodeType": "msg",
+    "throwErrors": false
+  },
+  {
+    "id": "19d18f86bbb71c2c",
+    "z": "5c65440a727c2f1c",
+    "x": 740,
+    "y": 638,
+    "wires": [
+      [
+        "2bec6bfa66bb9eeb"
+      ]
+    ],
+    "type": "function",
+    "name": "shape response",
+    "func": "if (msg.error) {\n  msg.statusCode = msg.error.status || 400;\n  msg.payload = { error: msg.error };\n  return msg;\n}\nconst r = msg.payload;\nmsg.payload = {\n  query: r.query,\n  affectedCount: r.affectedCount,\n  byContainment: r.byContainment,\n  containableNow: r.containableNow,\n  supplier: r.supplier,\n  safetyCritical: r.safetyCritical,\n  estimatedRecallCostCad: r.estimatedRecallCostCad,\n  recommendation: r.recommendation,\n  // Cap the VIN list: a real recall can touch tens of thousands, and the\n  // full list belongs in a file, not an HTTP response body.\n  affectedVins: r.affected.slice(0, 100).map((a) => a.vin),\n  truncated: r.affected.length > 100\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "2bec6bfa66bb9eeb",
+    "z": "5c65440a727c2f1c",
+    "x": 940,
+    "y": 638,
+    "wires": [],
+    "type": "http response",
+    "name": "respond",
+    "statusCode": "",
+    "headers": {
+      "content-type": "application/json"
+    }
+  },
+  {
+    "id": "428b71c755c9d450",
+    "z": "5c65440a727c2f1c",
+    "x": 140,
+    "y": 762,
+    "wires": [
+      [
+        "d226b11aaa601b93"
+      ]
+    ],
+    "type": "http in",
+    "name": "GET /factory/board",
+    "url": "/board",
+    "method": "get",
+    "upload": false,
+    "swaggerDoc": ""
+  },
+  {
+    "id": "d226b11aaa601b93",
+    "z": "5c65440a727c2f1c",
+    "x": 340,
+    "y": 762,
+    "wires": [
+      [
+        "1d5c1be6f354c511"
+      ]
+    ],
+    "type": "pc-oee",
+    "name": "dashboard",
+    "scope": "dashboard",
+    "target": "",
+    "targetType": "str",
+    "shifts": 8,
+    "throwErrors": false
+  },
+  {
+    "id": "1d5c1be6f354c511",
+    "z": "5c65440a727c2f1c",
+    "x": 540,
+    "y": 762,
+    "wires": [
+      [
+        "f80c7b17903edeff"
+      ]
+    ],
+    "type": "function",
+    "name": "prepare view model",
+    "func": "const d = msg.payload;\nmsg.view = {\n  oee: d.headline.oee,\n  rating: d.headline.rating,\n  jph: d.headline.jph,\n  built: d.headline.unitsCompleted,\n  fpy: d.headline.fpyPct ?? \"-\",\n  wip: d.headline.wip,\n  down: d.stations.downNow,\n  andon: d.andon.open,\n  shift: d.window.shiftName || d.window.shift,\n  lines: d.lines.map((l) => ({\n    id: l.lineId, oee: l.oee, jph: l.jph, wip: l.wip,\n    colour: l.oee >= 85 ? \"#2e7d32\" : l.oee >= 60 ? \"#ef6c00\" : \"#c62828\"\n  }))\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "f80c7b17903edeff",
+    "z": "5c65440a727c2f1c",
+    "x": 740,
+    "y": 762,
+    "wires": [
+      [
+        "ab539099e288a9f5"
+      ]
+    ],
+    "type": "template",
+    "name": "render board",
+    "field": "payload",
+    "fieldType": "msg",
+    "format": "handlebars",
+    "syntax": "mustache",
+    "template": "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n<title>Line Board - Windsor Assembly Plant</title>\n<style>\n body{font-family:system-ui,-apple-system,\"Segoe UI\",sans-serif;background:#0f1419;color:#e6edf3;margin:0;padding:24px}\n h1{font-size:20px;margin:0 0 4px} .sub{color:#8b949e;font-size:13px;margin-bottom:20px}\n .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px}\n .tile{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:14px}\n .tile .k{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#8b949e}\n .tile .v{font-size:26px;font-weight:600;margin-top:4px}\n table{width:100%;border-collapse:collapse;background:#161b22;border-radius:8px;overflow:hidden}\n th,td{padding:10px 14px;text-align:left;border-bottom:1px solid #30363d;font-size:14px}\n th{background:#1c2128;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#8b949e}\n .bar{height:6px;border-radius:3px;background:#30363d;overflow:hidden;margin-top:4px}\n .bar span{display:block;height:100%}\n a{color:#58a6ff}\n</style></head><body>\n<h1>Windsor Assembly Plant &mdash; Line Board</h1>\n<div class=\"sub\">{{view.shift}} &middot; served by Node-RED flow <code>95 - Factory API</code></div>\n<div class=\"tiles\">\n <div class=\"tile\"><div class=\"k\">Plant OEE</div><div class=\"v\">{{view.oee}}%</div></div>\n <div class=\"tile\"><div class=\"k\">Jobs / hour</div><div class=\"v\">{{view.jph}}</div></div>\n <div class=\"tile\"><div class=\"k\">Built this shift</div><div class=\"v\">{{view.built}}</div></div>\n <div class=\"tile\"><div class=\"k\">First pass yield</div><div class=\"v\">{{view.fpy}}%</div></div>\n <div class=\"tile\"><div class=\"k\">Work in progress</div><div class=\"v\">{{view.wip}}</div></div>\n <div class=\"tile\"><div class=\"k\">Stations down</div><div class=\"v\">{{view.down}}</div></div>\n <div class=\"tile\"><div class=\"k\">Andon open</div><div class=\"v\">{{view.andon}}</div></div>\n</div>\n<table><thead><tr><th>Line</th><th>OEE</th><th>JPH</th><th>WIP</th></tr></thead><tbody>\n{{#view.lines}}\n<tr><td>{{id}}</td>\n<td>{{oee}}%<div class=\"bar\"><span style=\"width:{{oee}}%;background:{{colour}}\"></span></div></td>\n<td>{{jph}}</td><td>{{wip}}</td></tr>\n{{/view.lines}}\n</tbody></table>\n<p style=\"margin-top:20px\"><a href=\"/\">Plant HMI</a> &middot; <a href=\"/api-docs\">API docs</a> &middot; <a href=\"/red\">Flow editor</a></p>\n</body></html>",
+    "output": "str"
+  },
+  {
+    "id": "ab539099e288a9f5",
+    "z": "5c65440a727c2f1c",
+    "x": 940,
+    "y": 762,
+    "wires": [],
+    "type": "http response",
+    "name": "respond",
+    "statusCode": "",
+    "headers": {
+      "content-type": "text/html; charset=utf-8"
+    }
+  },
+  {
+    "id": "5b7197b18d3309b6",
+    "type": "tab",
+    "label": "99 - Traceability",
+    "disabled": false,
+    "info": "# Traceability & Recall\n\nThe query an MES exists to answer: a supplier reports a bad batch, and\nthe plant needs to know which vehicles have it and where they are.\n\nInject **Run recall drill** below to see it. The flow picks the most\nwidely-used supplier lot, runs the recall query against the full build\nhistory, and routes the result by containment - vehicles still in the\nplant can be stopped, vehicles that have shipped cannot.",
+    "env": []
+  },
+  {
+    "id": "28e8cf9fac70be41",
+    "z": "5b7197b18d3309b6",
+    "x": 140,
+    "y": 80,
+    "wires": [],
+    "type": "comment",
+    "name": "Recall drill",
+    "info": "Recall drill\n\nLot lookups run against a maintained index, so this answers in\nmilliseconds across the whole build history rather than scanning every\nvehicle genealogy."
+  },
+  {
+    "id": "4eeac63e709e24be",
+    "z": "5b7197b18d3309b6",
+    "x": 140,
+    "y": 142,
+    "wires": [
+      [
+        "647bf418b0e0dae8"
+      ]
+    ],
+    "type": "inject",
+    "name": "Run recall drill",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": "0.1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date"
+  },
+  {
+    "id": "647bf418b0e0dae8",
+    "z": "5b7197b18d3309b6",
+    "x": 340,
+    "y": 142,
+    "wires": [
+      [
+        "7525ff31718f73ad"
+      ]
+    ],
+    "type": "function",
+    "name": "pick the worst lot",
+    "func": "const core = global.get(\"productionCore\");\n\n// Most-used lot first: the widest blast radius is the interesting case.\nconst lots = core.trace.listLots({ limit: 200 });\nif (!lots.items.length) {\n  node.status({ fill: \"grey\", shape: \"ring\", text: \"no lots yet\" });\n  return null;\n}\n\nconst target = lots.items[0];\nnode.status({ fill: \"blue\", shape: \"dot\", text: `${target.lotCode} (${target.vinCount} VINs)` });\n\nmsg.lotCode = target.lotCode;\nmsg.reason = \"Scheduled recall drill\";\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "7525ff31718f73ad",
+    "z": "5b7197b18d3309b6",
+    "x": 540,
+    "y": 142,
+    "wires": [
+      [
+        "051d30dae7bf88c3"
+      ]
+    ],
+    "type": "pc-genealogy",
+    "name": "recall analysis",
+    "operation": "recall",
+    "vin": "",
+    "vinType": "str",
+    "lotCode": "lotCode",
+    "lotCodeType": "msg",
+    "throwErrors": false
+  },
+  {
+    "id": "051d30dae7bf88c3",
+    "z": "5b7197b18d3309b6",
+    "x": 740,
+    "y": 142,
+    "wires": [
+      [
+        "035facb1f5f96f3a"
+      ],
+      [
+        "9a1de283f8b1acb2"
+      ],
+      [
+        "6a38e7e821e66466"
+      ]
+    ],
+    "type": "function",
+    "name": "assess containment",
+    "func": "const r = msg.payload;\nif (!r || !r.affectedCount) {\n  node.status({ fill: \"green\", shape: \"dot\", text: \"nothing affected\" });\n  return [null, null, msg];\n}\n\nconst c = r.byContainment;\nnode.status({\n  fill: c.SHIPPED > 0 ? \"red\" : \"yellow\",\n  shape: \"dot\",\n  text: `${r.affectedCount} affected, ${r.containableNow} containable`\n});\n\nmsg.payload = {\n  lotCode: r.query.lotCode,\n  supplier: r.supplier,\n  safetyCritical: r.safetyCritical,\n  affectedCount: r.affectedCount,\n  byContainment: c,\n  containableNow: r.containableNow,\n  estimatedCostCad: r.estimatedRecallCostCad,\n  action: r.recommendation.action,\n  rationale: r.recommendation.rationale,\n  inPlantVins: r.affected.filter((a) => a.containment === \"IN_PLANT\").map((a) => a.vin)\n};\n\n// A shipped safety-critical part is a different problem from one still\n// inside the fence, so route them separately.\nif (r.safetyCritical && c.SHIPPED > 0) return [msg, null, null];\nif (r.containableNow > 0) return [null, msg, null];\nreturn [null, null, msg];",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "035facb1f5f96f3a",
+    "z": "5b7197b18d3309b6",
+    "x": 940,
+    "y": 80,
+    "wires": [
+      [
+        "de8a6550497dab3b",
+        "46594ff0e5353cec"
+      ]
+    ],
+    "type": "function",
+    "name": "SAFETY RECALL",
+    "func": "const r = msg.payload;\nnode.error(`SAFETY RECALL: ${r.affectedCount} vehicles with ${r.supplier} lot ${r.lotCode}, ` +\n  `${r.byContainment.SHIPPED} already shipped. ${r.rationale}`, msg);\nnode.status({ fill: \"red\", shape: \"dot\", text: `${r.byContainment.SHIPPED} shipped` });\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "9a1de283f8b1acb2",
+    "z": "5b7197b18d3309b6",
+    "x": 940,
+    "y": 204,
+    "wires": [
+      [
+        "de8a6550497dab3b",
+        "46594ff0e5353cec"
+      ]
+    ],
+    "type": "function",
+    "name": "contain in plant",
+    "func": "const r = msg.payload;\nnode.warn(`Containment: hold ${r.containableNow} vehicle(s) carrying ${r.lotCode} ` +\n  `before they ship. Estimated cost CAD ${r.estimatedCostCad.toLocaleString()}.`);\nnode.status({ fill: \"yellow\", shape: \"dot\", text: `hold ${r.containableNow} vehicles` });\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "6a38e7e821e66466",
+    "z": "5b7197b18d3309b6",
+    "x": 940,
+    "y": 328,
+    "wires": [
+      [
+        "46594ff0e5353cec"
+      ]
+    ],
+    "type": "function",
+    "name": "no action",
+    "func": "node.status({ fill: \"green\", shape: \"dot\", text: \"no action required\" });\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "de8a6550497dab3b",
+    "z": "5b7197b18d3309b6",
+    "x": 1140,
+    "y": 142,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "recall result",
+    "topic": "northstar/win/plant/recall",
+    "qos": "0",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  },
+  {
+    "id": "46594ff0e5353cec",
+    "z": "5b7197b18d3309b6",
+    "x": 1140,
+    "y": 266,
+    "wires": [],
+    "type": "debug",
+    "name": "recall report",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": true,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "payload.action",
+    "statusType": "auto"
+  },
+  {
+    "id": "6669c257192fa594",
+    "z": "5b7197b18d3309b6",
+    "x": 140,
+    "y": 514,
+    "wires": [],
+    "type": "comment",
+    "name": "Vehicle passport",
+    "info": "Vehicle passport\n\nEvery released vehicle gets its as-built record published: the full\ncomponent tree with supplier lots, sealed and immutable."
+  },
+  {
+    "id": "58fb077f9eec5897",
+    "z": "5b7197b18d3309b6",
+    "x": 140,
+    "y": 576,
+    "wires": [
+      [
+        "a89ab6050099fdd3"
+      ]
+    ],
+    "type": "mqtt in",
+    "name": "vehicles released",
+    "topic": "northstar/win/plant/event/unit/completed",
+    "qos": "0",
+    "datatype": "json",
+    "broker": "23e3566df660c204",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0
+  },
+  {
+    "id": "a89ab6050099fdd3",
+    "z": "5b7197b18d3309b6",
+    "x": 340,
+    "y": 576,
+    "wires": [
+      [
+        "235d84686ac20a6c"
+      ]
+    ],
+    "type": "function",
+    "name": "read vin",
+    "func": "const event = msg.payload || {};\nmsg.vin = event.vin || event.payload?.vin;\nif (!msg.vin) return null;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "235d84686ac20a6c",
+    "z": "5b7197b18d3309b6",
+    "x": 540,
+    "y": 576,
+    "wires": [
+      [
+        "a936f7b60113c338"
+      ]
+    ],
+    "type": "pc-genealogy",
+    "name": "as-built record",
+    "operation": "get",
+    "vin": "vin",
+    "vinType": "msg",
+    "lotCode": "",
+    "lotCodeType": "str",
+    "throwErrors": false
+  },
+  {
+    "id": "a936f7b60113c338",
+    "z": "5b7197b18d3309b6",
+    "x": 740,
+    "y": 576,
+    "wires": [
+      [
+        "83634c8d0cc734f5"
+      ]
+    ],
+    "type": "function",
+    "name": "shape passport",
+    "func": "const g = msg.payload;\nif (!g) return null;\n\nnode.status({ fill: \"green\", shape: \"dot\", text: `${msg.vin}: ${g.stats.totalNodes} components` });\nmsg.payload = {\n  vin: g.vin,\n  modelCode: g.modelCode,\n  sealedAt: g.sealedAt,\n  componentCount: g.stats.totalNodes,\n  subAssemblies: g.stats.subAssemblies,\n  safetyCriticalParts: g.stats.safetyCriticalParts,\n  distinctLots: g.stats.distinctLots,\n  materialCostCad: g.estimatedMaterialCostCad\n};\nmsg.topic = `northstar/win/plant/passport/${g.vin}`;\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": []
+  },
+  {
+    "id": "83634c8d0cc734f5",
+    "z": "5b7197b18d3309b6",
+    "x": 940,
+    "y": 576,
+    "wires": [],
+    "type": "mqtt out",
+    "name": "publish passport",
+    "topic": "",
+    "qos": "0",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "23e3566df660c204"
+  }
+]
